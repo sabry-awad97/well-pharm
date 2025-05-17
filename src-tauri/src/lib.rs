@@ -1,4 +1,5 @@
 use tauri::Manager;
+use tracing::{error, info};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -13,8 +14,6 @@ pub async fn run() {
         .await
         .expect("Failed to load configuration");
 
-    tracing::info!("Configuration loaded: {:?}", config);
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -22,10 +21,25 @@ pub async fn run() {
 
             // Set up database connection in a separate thread
             tokio::spawn(async move {
-                let db_url = &config.database.url;
-                let conn_arc = db_service::establish_connection(db_url)
-                    .await
-                    .expect("Failed to connect to database");
+                let db_url = &config.database.url.to_owned();
+
+                // Ensure the database exists before trying to connect
+                match db_service::ensure_database_exists(db_url).await {
+                    Ok(_) => info!("Database exists or was created successfully"),
+                    Err(e) => {
+                        error!("Failed to ensure database exists: {}", e);
+                        // Continue anyway, as the error might be due to permissions
+                        // and the database might actually exist
+                    }
+                }
+
+                let max_connections = config.database.max_connections;
+                let timeout_seconds = config.database.timeout_seconds;
+
+                let conn_arc =
+                    db_service::establish_connection(db_url, max_connections, timeout_seconds)
+                        .await
+                        .expect("Failed to connect to database");
 
                 // Run migrations
                 db_migration::run_migrations(&conn_arc)

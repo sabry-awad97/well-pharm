@@ -20,6 +20,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 typed-builder = { workspace = true }
+url = { workspace = true, features = ["serde"] }
 
 db_entity = { workspace = true }
 

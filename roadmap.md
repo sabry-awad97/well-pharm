@@ -39,10 +39,12 @@ This document provides a structured checklist of implementation tasks for the We
 ### Database Configuration
 
 - [x] Set up PostgreSQL database connection in Rust
-- [x] Load config from app data directory
-- [x] Create default config file if not exists
-- [x] Save config to app data directory
-- [x] Load config from file
+- [x] Load config from file (in app data directory)
+- [x] Create default config file if not exists (in app data directory)
 - [x] Validate required settings
 - [x] Add config to app state
-
+- [x] Auto-create database if it doesn't exist
+- [x] Run migrations
+- [x] Better error handling for database connections
+- [x] Fix PostgreSQL collation version mismatch issues
+- [x] Support for different database environments
