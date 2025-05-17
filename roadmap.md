@@ -1,6 +1,6 @@
-# WellPharm: Pharmacy Management System Implementation Todos
+# WellPharm: Pharmacy Management System Implementation Roadmap
 
-This document provides a structured checklist of implementation tasks for the WellPharm pharmacy management system, organized by development phases and modules.
+This document provides a structured checklist of implementation tasks for the WellPharm pharmacy management system, organized by development phases and modules. It is intended to serve as a guide for developers working on the project.
 
 ## Phase 1: Project Setup and Foundation
 
@@ -34,17 +34,25 @@ This document provides a structured checklist of implementation tasks for the We
 - [x] Configure database tools (Drizzle)
 - [x] Set up TypeScript type checking
 
-## Phase 2: Database Design and Setup
+## Phase 2: Database Setup and Configuration
 
-### Database Configuration
+### Database Setup
 
 - [x] Set up PostgreSQL database connection in Rust
-- [x] Load config from file (in app data directory)
-- [x] Create default config file if not exists (in app data directory)
-- [x] Validate required settings
-- [x] Add config to app state
-- [x] Auto-create database if it doesn't exist
-- [x] Run migrations
-- [x] Better error handling for database connections
-- [x] Fix PostgreSQL collation version mismatch issues
-- [x] Support for different database environments
+- [x] Enhance configuration system
+  - [x] Load config from file (in app data directory)
+  - [x] Create default config file if not exists (in app data directory)
+  - [x] Validate required settings
+  - [x] Add config to app state
+- [x] Improve database handling
+  - [x] Auto-create database if it doesn't exist
+  - [x] Run migrations
+  - [x] Better error handling for database connections
+  - [x] Fix PostgreSQL collation version mismatch issues
+  - [x] Support for different database environments
+- [x] Add database reset functionality for development environments
+  - [x] Implement reset_database function with safety checks
+  - [x] Add command-line flag for database reset
+  - [x] Create UI confirmation dialog for database reset
+  - [x] Add environment-based safeguards to prevent production resets
+  - [x] Document database reset process for developers

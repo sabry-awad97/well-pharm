@@ -33,12 +33,7 @@ impl Settings {
         let config_builder = Config::builder()
             .add_source(File::from(path_ref))
             .add_source(
-                Environment::with_prefix("APP")
-                    .separator("_")
-                    .try_parsing(true),
-            )
-            .add_source(
-                Environment::with_prefix("DATABASE")
+                Environment::with_prefix("WELL_PHARM")
                     .separator("_")
                     .try_parsing(true),
             );
@@ -46,12 +41,28 @@ impl Settings {
         let config = config_builder.build()?;
         let settings: Settings = config.try_deserialize()?;
 
-        // Validate required settings
-        if settings.database.url.is_empty() {
-            return Err(ConfigError::Missing("DATABASE_URL".to_string()));
+        Ok(settings)
+    }
+
+    /// Validate the settings
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        // Validate database URL
+        if self.database.url.is_empty() {
+            return Err(ConfigError::Missing("database.url".into()));
         }
 
-        Ok(settings)
+        // Validate environment
+        match self.app.environment.as_str() {
+            "development" | "test" | "production" => {}
+            _ => {
+                return Err(ConfigError::Invalid(format!(
+                    "Invalid environment: {}. Must be one of: development, test, production",
+                    self.app.environment
+                )));
+            }
+        }
+
+        Ok(())
     }
 }
 
