@@ -8,6 +8,13 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
+    // Load configuration
+    let config = app_config::load()
+        .await
+        .expect("Failed to load configuration");
+
+    tracing::info!("Configuration loaded: {:?}", config);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -15,8 +22,7 @@ pub async fn run() {
 
             // Set up database connection in a separate thread
             tokio::spawn(async move {
-                // Database URL should come from config
-                let db_url = "postgres://postgres:postgres@localhost:5432/well_pharm";
+                let db_url = &config.database.url;
                 let conn_arc = db_service::establish_connection(db_url)
                     .await
                     .expect("Failed to connect to database");
@@ -33,6 +39,9 @@ pub async fn run() {
 
                 // Store the service manager in the app state
                 handle.manage(service_manager);
+
+                // Store config in app state
+                handle.manage(config);
             });
 
             Ok(())

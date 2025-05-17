@@ -1,0 +1,15 @@
+[package]
+name = "app_config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+config = { workspace = true }
+directories = "6.0.0"
+dotenv = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml = "0.8.8"
+tracing = { workspace = true }
