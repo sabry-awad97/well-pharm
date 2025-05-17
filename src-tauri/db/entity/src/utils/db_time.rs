@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset, Utc};
-use sea_orm::{QueryResult, TryGetError, Value};
+use sea_orm::Value;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use thiserror::Error;
@@ -94,64 +94,11 @@ impl From<DbTime> for Value {
     }
 }
 
-impl sea_orm::TryGetable for DbTime {
-    fn try_get(res: &QueryResult, pre: &str, col: &str) -> Result<Self, TryGetError> {
-        let val: Option<DateTime<Utc>> = res.try_get(pre, col)?;
-        match val {
-            Some(dt) => Ok(Self(dt.with_timezone(&FixedOffset::east_opt(0).unwrap()))),
-            None => Err(TryGetError::Null("DbTime was null".to_string())),
-        }
-    }
-
-    fn try_get_by<I: sea_orm::ColIdx>(res: &QueryResult, index: I) -> Result<Self, TryGetError> {
-        let val: Option<DateTime<Utc>> = res.try_get_by(index)?;
-        match val {
-            Some(dt) => Ok(Self(dt.with_timezone(&FixedOffset::east_opt(0).unwrap()))),
-            None => Err(TryGetError::Null("DbTime was null".to_string())),
-        }
-    }
-}
-
-impl sea_orm::sea_query::ValueType for DbTime {
-    fn try_from(v: Value) -> Result<Self, sea_orm::sea_query::ValueTypeErr> {
-        match v {
-            Value::ChronoDateTime(dt) => dt
-                .map(|dt| {
-                    DateTime::from_naive_utc_and_offset(*dt, FixedOffset::east_opt(0).unwrap())
-                })
-                .map(Self)
-                .ok_or(sea_orm::sea_query::ValueTypeErr),
-            _ => Err(sea_orm::sea_query::ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        "DateTime".to_string()
-    }
-
-    fn array_type() -> sea_orm::sea_query::ArrayType {
-        sea_orm::sea_query::ArrayType::ChronoDateTimeWithTimeZone
-    }
-
-    fn column_type() -> sea_orm::sea_query::ColumnType {
-        sea_orm::sea_query::ColumnType::DateTime
-    }
-}
-
-impl sea_orm::sea_query::Nullable for DbTime {
-    fn null() -> Value {
-        Value::ChronoDateTime(None)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use chrono::SecondsFormat;
-    use sea_orm::{
-        Value,
-        sea_query::{Nullable, ValueType},
-    };
+    use sea_orm::Value;
 
     #[test]
     fn test_time_now() {
@@ -293,47 +240,5 @@ mod tests {
             }
             _ => panic!("Expected ChronoDateTime variant"),
         }
-    }
-
-    #[test]
-    fn test_value_type_implementation() {
-        // Test conversion from Value to DbTime
-        let now = Utc::now().naive_utc();
-        let value = Value::ChronoDateTime(Some(Box::new(now)));
-
-        let time = <DbTime as sea_orm::sea_query::ValueType>::try_from(value).unwrap();
-        assert_eq!(time.timestamp(), now.and_utc().timestamp());
-
-        // Test type_name
-        assert_eq!(DbTime::type_name(), "DateTime");
-
-        // Test array_type
-        assert_eq!(
-            DbTime::array_type(),
-            sea_orm::sea_query::ArrayType::ChronoDateTimeWithTimeZone
-        );
-
-        // Test column_type
-        assert_eq!(
-            DbTime::column_type(),
-            sea_orm::sea_query::ColumnType::DateTime
-        );
-    }
-
-    #[test]
-    fn test_nullable_implementation() {
-        let null_value = DbTime::null();
-        match null_value {
-            Value::ChronoDateTime(None) => (),
-            _ => panic!("Expected ChronoDateTime(None)"),
-        }
-    }
-
-    #[test]
-    fn test_value_type_error_handling() {
-        // Test conversion from incompatible Value type
-        let value = Value::String(Some(Box::new("not a datetime".to_string())));
-        let result = <DbTime as sea_orm::sea_query::ValueType>::try_from(value);
-        assert!(result.is_err());
     }
 }

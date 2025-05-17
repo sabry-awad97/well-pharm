@@ -60,12 +60,12 @@ pub struct Model {
 
     pub role: UserRole,
 
-    pub created_at: DbTime,
+    pub created_at: DateTimeWithTimeZone,
 
-    pub updated_at: DbTime,
+    pub updated_at: DateTimeWithTimeZone,
 
     #[sea_orm(nullable)]
-    pub last_login: Option<DbTime>,
+    pub last_login: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -78,9 +78,9 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        let now: DbTime = DbTime::now();
+        let now = DbTime::now().into();
 
-        self.updated_at = Set(now.clone());
+        self.updated_at = Set(now);
 
         if insert {
             self.created_at = Set(now);
@@ -98,13 +98,13 @@ impl Entity {
         password_hash: String,
         role: UserRole,
     ) -> ActiveModel {
-        let now: DbTime = DbTime::now();
+        let now = DbTime::now().into();
         ActiveModel {
             username: Set(username),
             email: Set(email),
             password_hash: Set(password_hash),
             role: Set(role),
-            created_at: Set(now.clone()),
+            created_at: Set(now),
             updated_at: Set(now),
             last_login: Set(None),
             ..Default::default()
@@ -170,14 +170,14 @@ mod tests {
     #[tokio::test]
     async fn test_before_save_hook_update() {
         // Create a user with timestamps in the past
-        let past_time = DbTime::now().add_seconds(-3600); // 1 hour ago
+        let past_time = DbTime::now().add_seconds(-3600).into(); // 1 hour ago
         let mut user = ActiveModel {
             username: Set("existinguser".to_string()),
             email: Set("existing@example.com".to_string()),
             password_hash: Set("oldpassword".to_string()),
             role: Set(UserRole::Admin),
-            created_at: Set(past_time.clone()),
-            updated_at: Set(past_time.clone()),
+            created_at: Set(past_time),
+            updated_at: Set(past_time),
             ..Default::default()
         };
 
@@ -211,16 +211,16 @@ mod tests {
 
     #[test]
     fn test_user_model_serialization() {
-        let now = DbTime::now();
+        let now = DbTime::now().into();
         let user = Model {
             id: Uuid::parse_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f").unwrap(),
             username: "testuser".to_string(),
             email: "test@example.com".to_string(),
             password_hash: "hashed_password".to_string(),
             role: UserRole::Admin,
-            created_at: now.clone(),
-            updated_at: now.clone(),
-            last_login: Some(now.clone()),
+            created_at: now,
+            updated_at: now,
+            last_login: Some(now),
         };
 
         // Test serialization

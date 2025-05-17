@@ -61,5 +61,12 @@ This document provides a structured checklist of implementation tasks for the We
 
 - [ ] Design and implement User entity:
   - [x] Define schema with roles (admin, pharmacist, staff)
-  - [ ] Create repository interface and implementation
-  - [ ] Implement authentication methods
+  - [x] Create repository interface and implementation
+  - [ ] Implement JWT-based authentication methods:
+  - [ ] Create JWT token generation function with appropriate claims (user ID, role, expiration)
+  - [ ] Implement token validation and verification
+  - [ ] Add refresh token mechanism for extended sessions
+  - [ ] Create middleware for protected route authentication
+  - [ ] Store JWT secret securely in environment configuration
+  - [ ] Add token blacklisting for logout functionality
+  - [ ] Implement proper error handling for authentication failures

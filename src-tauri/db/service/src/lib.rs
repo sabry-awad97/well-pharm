@@ -13,6 +13,9 @@ use typed_builder::TypedBuilder;
 mod error;
 pub use error::ServiceError;
 
+mod user;
+pub use user::{UserRepository, SeaOrmUserRepository};
+
 /// ServiceManager is the central service coordinator for the pharmacy management system.
 /// It maintains thread-safe references to all service implementations and manages their lifecycle.
 ///
@@ -21,7 +24,10 @@ pub use error::ServiceError;
 /// across multiple parts of the application.
 ///
 #[derive(Clone, Getters, TypedBuilder)]
-pub struct ServiceManager {}
+pub struct ServiceManager {
+    /// User repository for managing user entities
+    user_repository: Arc<dyn UserRepository>,
+}
 
 impl ServiceManager {
     /// Creates a new instance of ServiceManager with all required services.
@@ -37,10 +43,13 @@ impl ServiceManager {
     ///
     /// # Errors
     /// Returns `ServiceError` if any service initialization fails
-    async fn try_new(_db: Arc<DatabaseConnection>) -> Result<Self, ServiceError> {
-        // Initialize services here
+    async fn try_new(db: Arc<DatabaseConnection>) -> Result<Self, ServiceError> {
+        // Initialize user repository
+        let user_repository = Arc::new(SeaOrmUserRepository::new(db.clone()));
 
-        Ok(Self::builder().build())
+        Ok(Self::builder()
+            .user_repository(user_repository)
+            .build())
     }
 }
 
