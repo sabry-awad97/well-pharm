@@ -4,3 +4,6 @@ dist
 dist-ssr
 *.local
 *.lock
+
+# env files (can opt-in for committing if needed)
+.env

@@ -1,0 +1,27 @@
+[package]
+name = "db_service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+argon2 = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+derive-getters = { workspace = true }
+sea-orm = { workspace = true, features = [
+    "mock",
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+typed-builder = { workspace = true }
+
+db_entity = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
