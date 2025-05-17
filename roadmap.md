@@ -56,3 +56,10 @@ This document provides a structured checklist of implementation tasks for the We
   - [x] Create UI confirmation dialog for database reset
   - [x] Add environment-based safeguards to prevent production resets
   - [x] Document database reset process for developers
+
+### Core Data Models
+
+- [ ] Design and implement User entity:
+  - [x] Define schema with roles (admin, pharmacist, staff)
+  - [ ] Create repository interface and implementation
+  - [ ] Implement authentication methods
