@@ -1,8 +1,30 @@
+//! Application configuration settings
+
 use crate::error::ConfigError;
-use config::{Config, Environment, File};
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+use config::{Config, Environment, File, Value};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::{path::Path, str::FromStr};
 use tracing::info;
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct JwtConfig {
+    /// Secret key for JWT signing (will be generated if not provided)
+    pub secret: Option<String>,
+    /// Access token expiration in minutes
+    pub token_expiration_minutes: i64,
+    /// Refresh token expiration in days
+    pub refresh_expiration_days: i64,
+}
+
+impl Default for JwtConfig {
+    fn default() -> Self {
+        Self {
+            secret: None,
+            token_expiration_minutes: 60,
+            refresh_expiration_days: 7,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -16,6 +38,9 @@ pub struct AppConfig {
     pub version: String,
     pub environment: String,
     pub log_level: String,
+    /// JWT configuration
+    #[serde(default)]
+    pub jwt: JwtConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,6 +99,7 @@ impl Default for Settings {
                 version: "0.1.0".to_string(),
                 environment: "development".to_string(),
                 log_level: "info".to_string(),
+                jwt: JwtConfig::default(),
             },
             database: DatabaseConfig {
                 url: "postgres://postgres:postgres@localhost:5432/well_pharm".to_string(),

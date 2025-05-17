@@ -14,63 +14,44 @@ mod error;
 pub use error::ServiceError;
 
 mod user;
-pub use user::{UserRepository, SeaOrmUserRepository};
+pub use user::{SeaOrmUserRepository, UserRepository};
 
-/// ServiceManager is the central service coordinator for the pharmacy management system.
-/// It maintains thread-safe references to all service implementations and manages their lifecycle.
-///
-/// # Thread Safety
-/// All services are wrapped in [`Arc`] (Atomic Reference Counting) to ensure thread-safe sharing
-/// across multiple parts of the application.
-///
-#[derive(Clone, Getters, TypedBuilder)]
+pub mod auth;
+pub use auth::{JwtManager, TokenStore};
+
+/// Service manager containing all application services
+#[derive(Getters, TypedBuilder)]
 pub struct ServiceManager {
-    /// User repository for managing user entities
+    db: Arc<DatabaseConnection>,
+
     user_repository: Arc<dyn UserRepository>,
+
+    jwt_manager: Arc<JwtManager>,
+
+    token_store: Arc<TokenStore>,
 }
 
-impl ServiceManager {
-    /// Creates a new instance of ServiceManager with all required services.
-    ///
-    /// This method initializes all service implementations with a shared database connection.
-    /// The connection is wrapped in an Arc to allow safe sharing across services.
-    ///
-    /// # Arguments
-    /// * `db` - Thread-safe reference to the database connection
-    ///
-    /// # Returns
-    /// * `Result<Self, ServiceError>` - New ServiceManager instance or error if initialization fails
-    ///
-    /// # Errors
-    /// Returns `ServiceError` if any service initialization fails
-    async fn try_new(db: Arc<DatabaseConnection>) -> Result<Self, ServiceError> {
-        // Initialize user repository
-        let user_repository = Arc::new(SeaOrmUserRepository::new(db.clone()));
-
-        Ok(Self::builder()
-            .user_repository(user_repository)
-            .build())
-    }
-}
-
-/// Creates and initializes a new ServiceManager with all required services.
-///
-/// This function serves as the main entry point for setting up the service layer.
-/// It establishes the database connection and initializes the ServiceManager.
-///
-/// # Arguments
-/// * `url` - Database connection URL string
-///
-/// # Returns
-/// * `Result<ServiceManager, ServiceError>` - Initialized ServiceManager or error
-///
-/// # Errors
-/// Returns `ServiceError` if:
-/// - Database connection fails
-/// - Service initialization fails
-///
+/// Sets up all services for the application
 pub async fn setup_services(db: &Arc<DatabaseConnection>) -> Result<ServiceManager, ServiceError> {
-    ServiceManager::try_new(db.clone()).await
+    // Get JWT secret from environment or config
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "default_jwt_secret_for_development_only".to_string());
+
+    // Create service instances
+    let user_repository = Arc::new(SeaOrmUserRepository::new(db.clone()));
+    let jwt_manager = Arc::new(JwtManager::new(
+        jwt_secret.as_bytes(),
+        60, // 60 minutes for access token
+        7,  // 7 days for refresh token
+    ));
+    let token_store = Arc::new(TokenStore::new());
+
+    Ok(ServiceManager::builder()
+        .db(db.clone())
+        .user_repository(user_repository)
+        .jwt_manager(jwt_manager)
+        .token_store(token_store)
+        .build())
 }
 
 /// Establishes a connection to the database using the provided URL.

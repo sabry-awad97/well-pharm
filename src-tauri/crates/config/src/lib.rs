@@ -81,3 +81,4 @@ pub async fn save_config(settings: &Settings) -> Result<(), ConfigError> {
     info!("Saved config to {:?}", config_path);
     Ok(())
 }
+

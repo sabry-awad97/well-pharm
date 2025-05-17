@@ -25,4 +25,12 @@ pub enum ServiceError {
     /// Operation not permitted
     #[error("Operation not permitted: {0}")]
     OperationNotPermitted(String),
+
+    /// Authentication error
+    #[error("Authentication error: {0}")]
+    AuthenticationError(String),
+
+    /// Authorization error
+    #[error("Authorization error: {0}")]
+    AuthorizationError(String),
 }

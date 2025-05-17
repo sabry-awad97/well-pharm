@@ -9,6 +9,7 @@ async-recursion = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 derive-getters = { workspace = true }
+jsonwebtoken = { workspace = true }
 sea-orm = { workspace = true, features = [
     "mock",
     "sqlx-postgres",

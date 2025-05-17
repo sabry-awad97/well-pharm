@@ -59,14 +59,13 @@ This document provides a structured checklist of implementation tasks for the We
 
 ### Core Data Models
 
-- [ ] Design and implement User entity:
+- [x] Design and implement User entity:
   - [x] Define schema with roles (admin, pharmacist, staff)
   - [x] Create repository interface and implementation
-  - [ ] Implement JWT-based authentication methods:
-  - [ ] Create JWT token generation function with appropriate claims (user ID, role, expiration)
-  - [ ] Implement token validation and verification
-  - [ ] Add refresh token mechanism for extended sessions
-  - [ ] Create middleware for protected route authentication
-  - [ ] Store JWT secret securely in environment configuration
-  - [ ] Add token blacklisting for logout functionality
-  - [ ] Implement proper error handling for authentication failures
+  - [x] Implement JWT-based authentication methods:
+  - [x] Create JWT token generation function with appropriate claims (user ID, role, expiration)
+  - [x] Implement token validation and verification
+  - [x] Add refresh token mechanism for extended sessions
+  - [x] Store JWT secret securely in environment configuration
+  - [x] Add token blacklisting for logout functionality
+  - [x] Implement proper error handling for authentication failures
