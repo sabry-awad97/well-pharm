@@ -60,6 +60,7 @@ This document provides a structured checklist of implementation tasks for the We
 ### Core Data Models
 
 - [x] Design and implement User entity:
+
   - [x] Define schema with roles (admin, pharmacist, staff)
   - [x] Create repository interface and implementation
   - [x] Implement JWT-based authentication methods:
@@ -69,3 +70,12 @@ This document provides a structured checklist of implementation tasks for the We
   - [x] Store JWT secret securely in environment configuration
   - [x] Add token blacklisting for logout functionality
   - [x] Implement proper error handling for authentication failures
+
+- [ ] Design and implement Product entity:
+  - [x] Define schema with required fields (name, category, dosage form, etc.)
+  - [x] Create ProductRepository interface with CRUD operations
+  - [x] Implement SeaOrmProductRepository with database operations
+  - [x] Add search and filtering capabilities
+  - [x] Integrate with ServiceManager
+  - [ ] Create database migration for products table
+  - [x] Write unit tests for repository implementation

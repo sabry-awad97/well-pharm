@@ -1,6 +1,11 @@
 pub mod user;
-
 pub mod utils;
 
-// Re-export the user module components for easier access
+// New product module
+pub mod product;
+
+// Re-export entities
+pub use product::{
+    ActiveModel as ProductActiveModel, Entity as Product, Model as ProductModel, ProductCategory,
+};
 pub use user::{ActiveModel as UserActiveModel, Entity as User, Model as UserModel, UserRole};

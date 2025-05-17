@@ -1,9 +1,9 @@
 //! Application configuration settings
 
 use crate::error::ConfigError;
-use config::{Config, Environment, File, Value};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::{path::Path, str::FromStr};
+use config::{Config, Environment, File};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 use tracing::info;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

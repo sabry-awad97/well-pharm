@@ -33,4 +33,12 @@ pub enum ServiceError {
     /// Authorization error
     #[error("Authorization error: {0}")]
     AuthorizationError(String),
+
+    /// Entity not found error
+    #[error("Entity not found: {0}")]
+    NotFound(String),
+
+    /// Duplicate entry error
+    #[error("Duplicate entry: {0}")]
+    DuplicateEntry(String),
 }

@@ -94,6 +94,13 @@ impl From<DbId> for String {
     }
 }
 
+impl From<DbId> for Uuid {
+    #[inline]
+    fn from(id: DbId) -> Self {
+        id.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
