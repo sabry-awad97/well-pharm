@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
@@ -163,10 +164,14 @@ export function Sidebar({ className }: SidebarProps) {
       // Don't attempt to logout if already in progress
       if (logoutMutation.isPending) return;
 
-      console.log('Starting logout process');
+      logger.info('Auth', 'Starting logout process');
 
       // Execute the logout mutation
       await logoutMutation.mutateAsync();
+
+      logger.info('Auth', 'User logged out successfully', {
+        username: currentUser?.username,
+      });
 
       // Clear any stored navigation paths
       sessionStorage.removeItem('previousPath');
@@ -175,14 +180,14 @@ export function Sidebar({ className }: SidebarProps) {
       queryClient.setQueryData(['auth', 'session'], false);
       queryClient.invalidateQueries({ queryKey: ['auth'] });
 
-      console.log('Auth state explicitly reset in query cache');
+      logger.info('Auth', 'Auth state explicitly reset in query cache');
 
       // Show success message
       toast.success('Successfully logged out');
 
       // Add a small delay to ensure state updates propagate
       setTimeout(() => {
-        console.log('Navigating to login page after logout');
+        logger.info('Auth', 'Navigating to login page after logout');
         // Navigate to login page
         navigate({ to: '/login', replace: true });
       }, 100);
@@ -204,7 +209,7 @@ export function Sidebar({ className }: SidebarProps) {
       queryClient.setQueryData(['auth', 'session'], false);
       queryClient.invalidateQueries({ queryKey: ['auth'] });
 
-      console.log('Auth state explicitly reset in query cache after error');
+      logger.info('Auth', 'Auth state explicitly reset in query cache');
 
       // 4. Show a warning to the user
       toast.warning(
@@ -213,7 +218,7 @@ export function Sidebar({ className }: SidebarProps) {
 
       // 5. Navigate to login page with a delay
       setTimeout(() => {
-        console.log('Navigating to login page after logout error');
+        logger.info('Auth', 'Navigating to login page after logout error');
         navigate({ to: '/login', replace: true });
       }, 100);
     }
@@ -393,7 +398,7 @@ export function Sidebar({ className }: SidebarProps) {
                     ) : (
                       <>
                         <AvatarImage
-                          src={`https://api.adorable.io/avatars/285/${currentUser?.username}`}
+                          src={''}
                           alt={currentUser?.username || 'User'}
                         />
                         <AvatarFallback className="bg-primary/5 text-primary">

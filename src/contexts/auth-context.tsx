@@ -1,4 +1,6 @@
 import { login as apiLogin, logout as apiLogout, checkAuth } from '@/api/auth';
+import { createContextLogger } from '@/lib/logger';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   type ReactNode,
   createContext,
@@ -6,7 +8,6 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -20,6 +21,9 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Create a context-specific logger
+const log = createContextLogger('AuthContext');
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,10 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Synchronize with React Query cache
         queryClient.setQueryData(['auth', 'session'], isAuth);
-        console.log(
-          'Auth context: Initial auth state synchronized with query cache:',
+        log.info('Initial auth state synchronized with query cache', {
           isAuth,
-        );
+        });
       } catch (error) {
         setIsAuthenticated(false);
         queryClient.setQueryData(['auth', 'session'], false);
@@ -53,10 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Synchronize auth state with React Query cache whenever it changes
   useEffect(() => {
     queryClient.setQueryData(['auth', 'session'], isAuthenticated);
-    console.log(
-      'Auth context: Auth state changed, updated query cache:',
-      isAuthenticated,
-    );
+    log.info('Auth state changed, updated query cache', { isAuthenticated });
   }, [isAuthenticated, queryClient]);
 
   const login = async (
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rememberMe: boolean,
   ) => {
     try {
-      console.log('Auth context: Starting login process');
+      log.info('Starting login process');
 
       // Call the API login function
       const response = await apiLogin({
@@ -73,17 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
 
-      console.log('Auth context: Login successful, updating state');
+      log.info('Login successful, updating state');
 
       // Store tokens based on rememberMe preference
       if (rememberMe) {
         // For "remember me", we store tokens in localStorage
         localStorage.setItem('access_token', response.access_token);
         localStorage.setItem('refresh_token', response.refresh_token);
+        log.debug('Tokens stored in localStorage (remember me enabled)');
       } else {
         // For session-only login, we use sessionStorage
         sessionStorage.setItem('access_token', response.access_token);
         sessionStorage.setItem('refresh_token', response.refresh_token);
+        log.debug('Tokens stored in sessionStorage (remember me disabled)');
       }
 
       // Update authentication state
@@ -93,11 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(['auth', 'session'], true);
       queryClient.setQueryData(['auth', 'user'], response.user);
 
-      console.log(
-        'Auth context: Authentication state updated to true and synchronized with query cache',
+      log.info(
+        'Authentication state updated to true and synchronized with query cache',
+        {
+          username: response.user.username,
+          role: response.user.role,
+        },
       );
     } catch (error) {
-      console.error('Auth context: Login failed', error);
+      log.error('Login failed', error);
       // Ensure authentication state is false on error
       setIsAuthenticated(false);
       queryClient.setQueryData(['auth', 'session'], false);
@@ -108,19 +114,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      log.info('Starting logout process');
       await apiLogout();
       setIsAuthenticated(false);
       queryClient.setQueryData(['auth', 'session'], false);
       queryClient.setQueryData(['auth', 'user'], null);
-      console.log(
-        'Auth context: Logout successful, auth state reset and synchronized with query cache',
+      log.info(
+        'Logout successful, auth state reset and synchronized with query cache',
       );
     } catch (error) {
-      console.error('Logout failed:', error);
+      log.error('Logout failed', error);
       // Still reset auth state on error
       setIsAuthenticated(false);
       queryClient.setQueryData(['auth', 'session'], false);
       queryClient.setQueryData(['auth', 'user'], null);
+      log.warn('Auth state reset despite logout error');
     }
   };
 

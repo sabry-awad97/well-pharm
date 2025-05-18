@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -28,8 +28,12 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
+import { createComponentLogger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { Loader2, Pill } from 'lucide-react';
+
+// Create a component-specific logger
+const log = createComponentLogger('LoginPage');
 
 // Define the form schema with Zod
 const loginFormSchema = z.object({
@@ -48,6 +52,14 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // Log component initialization
+  useEffect(() => {
+    log.debug('Component initialized');
+    return () => {
+      log.debug('Component unmounting');
+    };
+  }, []);
+
   // Initialize form with react-hook-form and zod validation
   const form = useForm({
     resolver: zodResolver(loginFormSchema),
@@ -60,14 +72,21 @@ export function LoginPage() {
 
   // Handle form submission
   const onSubmit = async (data: LoginFormValues) => {
+    log.info('Login form submitted', {
+      username_or_email: data.username_or_email,
+      rememberMe: data.rememberMe,
+    });
+
     setIsLoading(true);
     setError(null);
 
     try {
+      log.debug('Attempting login via auth context');
+
       // Use the login function from our auth context
       await login(data.username_or_email, data.password, data.rememberMe);
 
-      console.log(
+      log.info(
         'Login successful, updating query cache and preparing navigation',
       );
 
@@ -79,15 +98,16 @@ export function LoginPage() {
 
       // Explicitly update the query cache to ensure consistency
       queryClient.setQueryData(['auth', 'session'], true);
+      log.debug('Query cache updated with authentication state');
 
       // Force a small delay to ensure state updates are processed
       // and avoid any race conditions with the authentication state
       setTimeout(() => {
-        console.log('Executing navigation to dashboard');
+        log.debug('Executing navigation to dashboard');
 
         // Try to get previous location from session storage
         const previousPath = sessionStorage.getItem('previousPath') || '/';
-        console.log('Navigating to:', previousPath);
+        log.info('Navigating to path', { path: previousPath });
 
         // Navigate to previous path or dashboard
         navigate({
@@ -96,7 +116,7 @@ export function LoginPage() {
         });
       }, 300); // Increased delay to ensure state propagation
     } catch (err) {
-      console.error('Login error:', err);
+      log.error('Login attempt failed', err);
 
       // Show error toast notification
       toast.error('Login failed', {
@@ -113,10 +133,24 @@ export function LoginPage() {
           ? err.message
           : 'Invalid credentials. Please try again.',
       );
+
+      log.warn('Error message displayed to user', {
+        errorMessage:
+          err instanceof Error ? err.message : 'Invalid credentials',
+      });
     } finally {
       setIsLoading(false);
+      log.debug('Login form processing completed');
     }
   };
+
+  // Log form validation errors when they occur
+  useEffect(() => {
+    const errors = form.formState.errors;
+    if (Object.keys(errors).length > 0) {
+      log.debug('Form validation errors', errors);
+    }
+  }, [form.formState.errors]);
 
   // Animation variants
   const containerVariants = {
@@ -207,6 +241,10 @@ export function LoginPage() {
                               form.formState.errors.username_or_email &&
                                 'border-destructive',
                             )}
+                            onChange={e => {
+                              field.onChange(e);
+                              log.debug('Username/email field updated');
+                            }}
                           />
                         </FormControl>
                         <FormMessage className="text-xs" />
@@ -231,6 +269,10 @@ export function LoginPage() {
                               form.formState.errors.password &&
                                 'border-destructive',
                             )}
+                            onChange={e => {
+                              field.onChange(e);
+                              log.debug('Password field updated');
+                            }}
                           />
                         </FormControl>
                         <FormMessage className="text-xs" />
@@ -247,7 +289,10 @@ export function LoginPage() {
                           <FormControl>
                             <Checkbox
                               checked={field.value}
-                              onCheckedChange={field.onChange}
+                              onCheckedChange={checked => {
+                                field.onChange(checked);
+                                log.debug('Remember me toggled', { checked });
+                              }}
                               disabled={isLoading}
                               id="remember-me"
                             />
@@ -268,6 +313,7 @@ export function LoginPage() {
                       disabled={isLoading}
                       onClick={e => {
                         e.preventDefault();
+                        log.info('Forgot password link clicked');
                         // Handle forgot password
                       }}
                     >
@@ -275,7 +321,22 @@ export function LoginPage() {
                     </Button>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading}
+                    onClick={() => {
+                      if (isLoading) {
+                        log.debug(
+                          'Submit button clicked while loading, ignoring',
+                        );
+                      } else {
+                        log.debug(
+                          'Submit button clicked, form will be validated',
+                        );
+                      }
+                    }}
+                  >
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

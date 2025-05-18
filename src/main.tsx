@@ -2,10 +2,14 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 
+import { initializeLogger } from './lib/logger-init';
 import Providers from './providers.tsx';
 import reportWebVitals from './reportWebVitals.ts';
 import router from './router.ts';
 import './styles.css';
+
+// Initialize the logger
+initializeLogger();
 
 // Render the app
 const rootElement = document.getElementById('app');
