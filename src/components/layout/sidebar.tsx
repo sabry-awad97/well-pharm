@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useMatches } from '@tanstack/react-router';
-import { cn } from '@/lib/utils';
+import { useLogout } from '@/api/auth';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -8,23 +7,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useMatches, useNavigate } from '@tanstack/react-router';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  LayoutDashboard,
-  Package,
-  Users,
-  Pill,
   BarChart3,
-  Settings,
-  LogOut,
   ChevronLeft,
   ChevronRight,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
   Menu,
+  Package,
+  Pill,
+  Settings,
+  Users,
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useMediaQuery } from '@/hooks/use-media-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useNavigate } from '@tanstack/react-router';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -112,6 +114,10 @@ export function Sidebar({ className }: SidebarProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const matches = useMatches();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Use the logout mutation from our auth API
+  const logoutMutation = useLogout();
 
   const currentRoute =
     matches.length > 0 ? matches[matches.length - 1].pathname : '/';
@@ -122,12 +128,62 @@ export function Sidebar({ className }: SidebarProps) {
 
   const handleLogout = async () => {
     try {
-      await invoke('logout');
-      // Clear the previous path when logging out
+      // Don't attempt to logout if already in progress
+      if (logoutMutation.isPending) return;
+
+      console.log('Starting logout process');
+
+      // Execute the logout mutation
+      await logoutMutation.mutateAsync();
+
+      // Clear any stored navigation paths
       sessionStorage.removeItem('previousPath');
-      navigate({ to: '/login' });
+
+      // Explicitly invalidate and reset auth state in the query cache
+      queryClient.setQueryData(['auth', 'session'], false);
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
+
+      console.log('Auth state explicitly reset in query cache');
+
+      // Show success message
+      toast.success('Successfully logged out');
+
+      // Add a small delay to ensure state updates propagate
+      setTimeout(() => {
+        console.log('Navigating to login page after logout');
+        // Navigate to login page
+        navigate({ to: '/login', replace: true });
+      }, 100);
     } catch (error) {
       console.error('Logout failed:', error);
+
+      // Even if the logout fails, we should still:
+
+      // 1. Clear any stored navigation paths
+      sessionStorage.removeItem('previousPath');
+
+      // 2. Clear any tokens that might be left
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('access_token');
+      sessionStorage.removeItem('refresh_token');
+
+      // 3. Explicitly reset auth state in the query cache
+      queryClient.setQueryData(['auth', 'session'], false);
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
+
+      console.log('Auth state explicitly reset in query cache after error');
+
+      // 4. Show a warning to the user
+      toast.warning(
+        'Logout encountered an issue, but you have been logged out successfully.',
+      );
+
+      // 5. Navigate to login page with a delay
+      setTimeout(() => {
+        console.log('Navigating to login page after logout error');
+        navigate({ to: '/login', replace: true });
+      }, 100);
     }
   };
 
@@ -319,51 +375,53 @@ export function Sidebar({ className }: SidebarProps) {
                 !isCollapsed && 'ml-auto',
               )}
             >
-              {isCollapsed ? (
-                <TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-destructive/10 hover:text-destructive h-8 w-8"
+                      onClick={handleLogout}
+                      disabled={logoutMutation.isPending}
+                      aria-label="Logout"
+                    >
+                      {logoutMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <LogOut className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Logout</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {isDesktop && (
+                <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="hover:bg-destructive/10 hover:text-destructive h-8 w-8"
-                        onClick={handleLogout}
-                        aria-label="Logout"
+                        className="hover:bg-muted h-8 w-8"
+                        onClick={toggleSidebar}
+                        aria-label={
+                          isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+                        }
                       >
-                        <LogOut className="h-4 w-4" />
+                        {isCollapsed ? (
+                          <ChevronRight className="h-4 w-4" />
+                        ) : (
+                          <ChevronLeft className="h-4 w-4" />
+                        )}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="right">Logout</TooltipContent>
+                    <TooltipContent side="right">
+                      {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-destructive/10 hover:text-destructive h-8 w-8"
-                  onClick={handleLogout}
-                  aria-label="Logout"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              )}
-
-              {isDesktop && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-muted h-8 w-8"
-                  onClick={toggleSidebar}
-                  aria-label={
-                    isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
-                  }
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronLeft className="h-4 w-4" />
-                  )}
-                </Button>
               )}
             </div>
           </motion.div>
@@ -372,4 +430,3 @@ export function Sidebar({ className }: SidebarProps) {
     </>
   );
 }
-

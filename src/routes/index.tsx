@@ -1,18 +1,5 @@
-import router from '@/router';
-import { createFileRoute } from '@tanstack/react-router';
-import { invoke } from '@tauri-apps/api/core';
-import { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
-import {
-  LayoutDashboard,
-  Users,
-  Package,
-  Pill,
-  TrendingUp,
-  AlertCircle,
-  Calendar,
-  Clock,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -20,9 +7,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  AlertCircle,
+  Calendar,
+  Clock,
+  Package,
+  Pill,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export const Route = createFileRoute('/')({
   component: Dashboard,

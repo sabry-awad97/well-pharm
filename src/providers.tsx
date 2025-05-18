@@ -4,10 +4,8 @@ import { AuthProvider } from './contexts/auth-context';
 
 export default function Providers({ children }: PropsWithChildren) {
   return (
-    <AuthProvider>
-      <TanStackQueryProvider.Provider>
-        {children}
-      </TanStackQueryProvider.Provider>
-    </AuthProvider>
+    <TanStackQueryProvider.Provider>
+      <AuthProvider>{children}</AuthProvider>
+    </TanStackQueryProvider.Provider>
   );
 }

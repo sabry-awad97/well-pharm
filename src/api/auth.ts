@@ -91,12 +91,24 @@ export function useLogin() {
   return useMutation({
     mutationFn: login,
     onSuccess: data => {
+      console.log('Login API: Login successful, updating query cache');
+
       // Store tokens in localStorage or secure storage
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
 
+      // Immediately update auth session state in cache
+      queryClient.setQueryData(['auth', 'session'], true);
+
+      // Store user data in cache
+      queryClient.setQueryData(['auth', 'user'], data.user);
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: authKeys.all });
+
+      console.log('Login API: Auth state updated in query cache');
+
+      return data;
     },
   });
 }
@@ -154,18 +166,44 @@ export function useRefreshToken() {
  */
 export async function logout(): Promise<void> {
   try {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      throw new AuthError('No active session found');
+    // Check both localStorage and sessionStorage for tokens
+    const token =
+      localStorage.getItem('access_token') ||
+      sessionStorage.getItem('access_token');
+
+    if (token) {
+      // Only call the backend if we have a token
+      try {
+        await invoke('logout', { token });
+        console.log('Backend logout successful');
+      } catch (error) {
+        console.warn(
+          'Backend logout failed, continuing with client-side cleanup:',
+          error,
+        );
+      }
+    } else {
+      console.log(
+        'No active session found, performing client-side cleanup only',
+      );
     }
 
-    await invoke('logout', { token });
-
-    // Clear tokens from storage
+    // Always clear tokens from storage regardless of backend success
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+
+    console.log('Client-side logout completed, tokens cleared');
   } catch (error) {
-    throw new AuthError(`Logout failed: ${error}`);
+    console.error('Logout error:', error);
+    // Still clear tokens even if there was an error
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+
+    throw new AuthError(`Logout process encountered an error: ${error}`);
   }
 }
 
@@ -178,8 +216,35 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
+      // Immediately set auth session to false
+      queryClient.setQueryData(['auth', 'session'], false);
+
+      // Remove user data from cache
+      queryClient.setQueryData(['auth', 'user'], null);
+
       // Invalidate all auth queries
       queryClient.invalidateQueries({ queryKey: authKeys.all });
+
+      console.log(
+        'Logout mutation successful, auth queries invalidated and state reset',
+      );
+    },
+    onError: error => {
+      console.warn(
+        'Logout mutation error, but continuing with cleanup:',
+        error,
+      );
+
+      // Even on error, immediately set auth session to false
+      queryClient.setQueryData(['auth', 'session'], false);
+
+      // Remove user data from cache
+      queryClient.setQueryData(['auth', 'user'], null);
+
+      // Invalidate all auth queries
+      queryClient.invalidateQueries({ queryKey: authKeys.all });
+
+      console.log('Auth state reset after logout error');
     },
   });
 }
