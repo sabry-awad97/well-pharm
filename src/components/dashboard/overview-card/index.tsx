@@ -1,6 +1,7 @@
+import { useCompareWeeklyOverviewData } from '@/api/overview';
 import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
-import { cn } from '@/lib/utils'; // Added cn helper
+import { cn } from '@/lib/utils';
 import { Clock } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -9,7 +10,7 @@ import ChartControls from './chart-controls';
 import ChartSummary from './chart-summary';
 import ChartVisualization from './chart-visualization';
 import SkeletonLoader from './skeleton-loader';
-import { type DailyData, fetchWeeklyData, getStartOfWeek } from './utils';
+import { getStartOfWeek } from './utils';
 
 interface OverviewCardProps {
   onRefresh: () => void;
@@ -23,48 +24,29 @@ export function OverviewCard({
   const [currentStartDate, setCurrentStartDate] = React.useState<Date>(() =>
     getStartOfWeek(new Date()),
   );
-  const [chartData, setChartData] = React.useState<DailyData[]>([]);
-  const [previousWeekData, setPreviousWeekData] = React.useState<DailyData[]>(
-    [],
-  );
   const [chartType, setChartType] = React.useState<'bar' | 'line'>('bar');
   const [isComparing, setIsComparing] = React.useState(false);
-  const [isLoadingData, setIsLoadingData] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
 
-  const fetchData = React.useCallback(async (date: Date) => {
-    setIsLoadingData(true);
-    setError(null);
-    try {
-      const currentWeekPromise = fetchWeeklyData(date);
-      const prevWeekStartDate = new Date(date);
-      prevWeekStartDate.setDate(date.getDate() - 7);
-      const previousWeekPromise = fetchWeeklyData(prevWeekStartDate);
+  // Use the combined hook for fetching both current and previous week data
+  const {
+    currentWeek,
+    previousWeek,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    isPlaceholderData,
+    refetch,
+  } = useCompareWeeklyOverviewData(currentStartDate, {
+    staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+  });
 
-      const [currentData, prevData] = await Promise.all([
-        currentWeekPromise,
-        previousWeekPromise,
-      ]);
-
-      setChartData(currentData);
-      setPreviousWeekData(prevData);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'An unknown error occurred.',
-      );
-      setChartData([]);
-      setPreviousWeekData([]);
-    } finally {
-      setIsLoadingData(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    fetchData(currentStartDate);
-  }, [currentStartDate, fetchData]);
+  const chartData = currentWeek.data || [];
+  const previousWeekData = previousWeek.data || [];
 
   const handleRefresh = () => {
-    fetchData(currentStartDate);
+    refetch();
     if (onParentRefresh) {
       onParentRefresh();
     }
@@ -159,7 +141,7 @@ export function OverviewCard({
     });
   };
 
-  const cardIsLoading = isLoadingData || isParentFetching;
+  const cardIsLoading = isLoading || isFetching || isParentFetching;
 
   // Refresh button for the card header
   const refreshButton = (
@@ -187,12 +169,15 @@ export function OverviewCard({
       action={refreshButton}
       isLoading={cardIsLoading}
     >
-      {cardIsLoading && !error ? (
+      {cardIsLoading && !isError ? (
         <SkeletonLoader />
-      ) : error ? (
+      ) : isError ? (
         <div className="p-4">
           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-500">
-            Error: {error}
+            Error:{' '}
+            {error instanceof Error
+              ? error.message
+              : 'An unknown error occurred'}
           </div>
         </div>
       ) : (
@@ -207,6 +192,7 @@ export function OverviewCard({
             handleDateChange={handleDateChange}
             handleExport={handleExport}
             isLoading={cardIsLoading}
+            isPlaceholderData={isPlaceholderData}
           />
 
           <ChartVisualization

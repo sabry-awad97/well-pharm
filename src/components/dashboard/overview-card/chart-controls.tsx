@@ -29,6 +29,7 @@ interface ChartControlsProps {
   handleDateChange: (direction: 'prev' | 'next') => void;
   handleExport: () => void;
   isLoading: boolean;
+  isPlaceholderData?: boolean;
 }
 
 function ChartControls({
@@ -41,6 +42,7 @@ function ChartControls({
   handleDateChange,
   handleExport,
   isLoading,
+  isPlaceholderData,
 }: ChartControlsProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
