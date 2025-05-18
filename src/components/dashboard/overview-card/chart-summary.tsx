@@ -1,5 +1,6 @@
-import { cn } from '@/lib/utils';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
+import SummaryItem from './summary-item'; // Import the new component
 
 // Chart Summary Component
 interface ChartSummaryProps {
@@ -32,77 +33,48 @@ function ChartSummary({
   };
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4"
-    >
+    <TooltipProvider>
       <motion.div
-        variants={itemVariants}
-        className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4"
       >
-        <p className="text-muted-foreground text-xs font-medium">
-          Total Prescriptions
-        </p>
-        <p className="text-xl font-bold tracking-tight">
-          {totalCurrentWeekPrescriptions.toLocaleString()}
-        </p>
-      </motion.div>
+        {/* Total Prescriptions */}
+        <SummaryItem
+          label="Total Prescriptions"
+          value={totalCurrentWeekPrescriptions.toLocaleString()}
+          tooltipContent="Total prescriptions dispensed this week."
+          itemVariants={itemVariants}
+        />
 
-      <motion.div
-        variants={itemVariants}
-        className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
-      >
-        <p className="text-muted-foreground text-xs font-medium">
-          vs. Previous Week
-        </p>
-        <div className="flex items-center gap-1">
-          <p
-            className={cn(
-              'text-xl font-bold tracking-tight',
-              percentageChange >= 0
-                ? 'text-emerald-600 dark:text-emerald-500'
-                : 'text-red-600 dark:text-red-500',
-            )}
-          >
-            {percentageChange.toFixed(1)}%
-          </p>
-          {percentageChange !== 0 && (
-            <span
-              className={cn(
-                'text-xs',
-                percentageChange > 0
-                  ? 'text-emerald-600 dark:text-emerald-500'
-                  : 'text-red-600 dark:text-red-500',
-              )}
-            >
-              {percentageChange > 0 ? '↑' : '↓'}
-            </span>
-          )}
-        </div>
-      </motion.div>
+        {/* Percentage Change */}
+        <SummaryItem
+          label="vs. Previous Week"
+          tooltipContent="Percentage change compared to the previous week."
+          itemVariants={itemVariants}
+          isPercentageChange={true}
+          percentageChangeValue={percentageChange}
+        />
 
-      <motion.div
-        variants={itemVariants}
-        className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
-      >
-        <p className="text-muted-foreground text-xs font-medium">
-          Daily Average
-        </p>
-        <p className="text-xl font-bold tracking-tight">
-          {dailyAverage.toFixed(1)}
-        </p>
-      </motion.div>
+        {/* Daily Average */}
+        <SummaryItem
+          label="Daily Average"
+          value={dailyAverage.toFixed(1)}
+          tooltipContent="Average number of prescriptions per day this week."
+          itemVariants={itemVariants}
+        />
 
-      <motion.div
-        variants={itemVariants}
-        className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
-      >
-        <p className="text-muted-foreground text-xs font-medium">Busiest Day</p>
-        <p className="text-xl font-bold tracking-tight">{busiestDay}</p>
+        {/* Busiest Day */}
+        <SummaryItem
+          label="Busiest Day"
+          value={busiestDay}
+          tooltipContent="The day with the highest number of prescriptions this week."
+          itemVariants={itemVariants}
+        />
       </motion.div>
-    </motion.div>
+    </TooltipProvider>
   );
 }
+
 export default ChartSummary;
