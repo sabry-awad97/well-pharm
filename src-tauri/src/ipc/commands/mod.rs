@@ -13,5 +13,6 @@ pub fn create_handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         onboarding::create_admin_user,
         onboarding::setup_workspace,
         onboarding::complete_onboarding,
+        onboarding::test_database_connection,
     ]
 }

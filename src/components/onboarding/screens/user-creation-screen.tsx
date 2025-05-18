@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -79,138 +80,140 @@ export function UserCreationScreen({
       initial="hidden"
       animate="visible"
     >
-      <div className="w-full max-w-md space-y-4">
-        <motion.div variants={itemVariants} className="text-center">
-          <h2 className="text-2xl font-bold tracking-tight">
-            Create Administrator Account
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Set up the primary admin account for your system
-          </p>
-        </motion.div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <motion.div variants={itemVariants}>
-            <Card className="border-muted bg-card overflow-hidden shadow-sm">
-              <div className="border-border/40 bg-muted/30 border-b p-3">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert className="text-primary h-4 w-4" />
-                  <h3 className="text-sm font-medium">Admin Credentials</h3>
-                </div>
-              </div>
-              <div className="space-y-3 p-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <User className="text-muted-foreground h-3.5 w-3.5" />
-                    <Label htmlFor="adminName" className="text-xs font-medium">
-                      Full Name
-                    </Label>
-                  </div>
-                  <Input
-                    id="adminName"
-                    value={formData.adminName}
-                    onChange={e => onChange('adminName', e.target.value)}
-                    placeholder="John Doe"
-                    className="h-8 text-sm"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Mail className="text-muted-foreground h-3.5 w-3.5" />
-                    <Label htmlFor="adminEmail" className="text-xs font-medium">
-                      Email Address
-                    </Label>
-                  </div>
-                  <Input
-                    id="adminEmail"
-                    type="email"
-                    value={formData.adminEmail}
-                    onChange={e => onChange('adminEmail', e.target.value)}
-                    placeholder="admin@example.com"
-                    className="h-8 text-sm"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Lock className="text-muted-foreground h-3.5 w-3.5" />
-                    <Label
-                      htmlFor="adminPassword"
-                      className="text-xs font-medium"
-                    >
-                      Password
-                    </Label>
-                  </div>
-                  <Input
-                    id="adminPassword"
-                    type="password"
-                    value={formData.adminPassword}
-                    onChange={e => {
-                      onChange('adminPassword', e.target.value);
-                      setPasswordError('');
-                    }}
-                    placeholder="Create a secure password"
-                    className="h-8 text-sm"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Lock className="text-muted-foreground h-3.5 w-3.5" />
-                    <Label
-                      htmlFor="confirmPassword"
-                      className="text-xs font-medium"
-                    >
-                      Confirm Password
-                    </Label>
-                  </div>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={passwordConfirm}
-                    onChange={e => {
-                      setPasswordConfirm(e.target.value);
-                      setPasswordError('');
-                    }}
-                    placeholder="Confirm your password"
-                    className="h-8 text-sm"
-                    required
-                  />
-                  {passwordError && (
-                    <p className="text-destructive text-xs font-medium">
-                      {passwordError}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
+      <ScrollArea className="h-full w-full">
+        <div className="w-full max-w-md space-y-4 mx-auto">
+          <motion.div variants={itemVariants} className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight">
+              Create Administrator Account
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Set up the primary admin account for your system
+            </p>
           </motion.div>
 
-          <motion.div
-            variants={itemVariants}
-            className="flex justify-between pt-2"
-          >
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onBack}
-              size="sm"
-              className="gap-1"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <motion.div variants={itemVariants}>
+              <Card className="border-muted bg-card overflow-hidden shadow-sm">
+                <div className="border-border/40 bg-muted/30 border-b p-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="text-primary h-4 w-4" />
+                    <h3 className="text-sm font-medium">Admin Credentials</h3>
+                  </div>
+                </div>
+                <div className="space-y-3 p-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1">
+                      <User className="text-muted-foreground h-3.5 w-3.5" />
+                      <Label htmlFor="adminName" className="text-xs font-medium">
+                        Full Name
+                      </Label>
+                    </div>
+                    <Input
+                      id="adminName"
+                      value={formData.adminName}
+                      onChange={e => onChange('adminName', e.target.value)}
+                      placeholder="John Doe"
+                      className="h-8 text-sm"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1">
+                      <Mail className="text-muted-foreground h-3.5 w-3.5" />
+                      <Label htmlFor="adminEmail" className="text-xs font-medium">
+                        Email Address
+                      </Label>
+                    </div>
+                    <Input
+                      id="adminEmail"
+                      type="email"
+                      value={formData.adminEmail}
+                      onChange={e => onChange('adminEmail', e.target.value)}
+                      placeholder="admin@example.com"
+                      className="h-8 text-sm"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1">
+                      <Lock className="text-muted-foreground h-3.5 w-3.5" />
+                      <Label
+                        htmlFor="adminPassword"
+                        className="text-xs font-medium"
+                      >
+                        Password
+                      </Label>
+                    </div>
+                    <Input
+                      id="adminPassword"
+                      type="password"
+                      value={formData.adminPassword}
+                      onChange={e => {
+                        onChange('adminPassword', e.target.value);
+                        setPasswordError('');
+                      }}
+                      placeholder="Create a secure password"
+                      className="h-8 text-sm"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1">
+                      <Lock className="text-muted-foreground h-3.5 w-3.5" />
+                      <Label
+                        htmlFor="confirmPassword"
+                        className="text-xs font-medium"
+                      >
+                        Confirm Password
+                      </Label>
+                    </div>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordConfirm}
+                      onChange={e => {
+                        setPasswordConfirm(e.target.value);
+                        setPasswordError('');
+                      }}
+                      placeholder="Confirm your password"
+                      className="h-8 text-sm"
+                      required
+                    />
+                    {passwordError && (
+                      <p className="text-destructive text-xs font-medium">
+                        {passwordError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="flex justify-between pt-2"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back
-            </Button>
-            <Button type="submit" size="sm" className="gap-1">
-              Next
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </motion.div>
-        </form>
-      </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onBack}
+                size="sm"
+                className="gap-1"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
+              </Button>
+              <Button type="submit" size="sm" className="gap-1">
+                Next
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </motion.div>
+          </form>
+        </div>
+      </ScrollArea>
     </motion.div>
   );
 }

@@ -1,2 +1,2 @@
 mod onboarding;
-pub use onboarding::{OnboardingManager, WorkspaceSettings};
+pub use onboarding::{DbConfig, OnboardingManager, WorkspaceSettings};

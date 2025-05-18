@@ -48,6 +48,15 @@ pub struct WorkspaceSettings {
     pub license: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct DbConfig {
+    pub host: String,
+    pub port: u16,
+    pub name: String,
+    pub user: String,
+    pub password: String,
+}
+
 pub struct OnboardingManager {
     app_handle: AppHandle,
 }
@@ -97,6 +106,13 @@ impl OnboardingManager {
             .map_err(|e| {
                 OnboardingError::DatabaseError(format!("Failed to connect to database: {}", e))
             })?;
+        
+        // Run migrations
+        info!("Running database migrations...");
+        db_migration::run_migrations(&conn).await.map_err(|e| {
+            OnboardingError::DatabaseError(format!("Failed to run migrations: {}", e))
+        })?;
+        info!("Database migrations completed successfully");
 
         // Update config
         let mut config = self.app_handle.state::<Settings>().inner().clone();

@@ -5,17 +5,18 @@ use sea_orm::entity::prelude::*;
 use sea_orm::{ActiveValue::Set, ConnectionTrait, DbErr};
 use serde::{Deserialize, Serialize};
 
+use crate::utils::db_id::DbId;
 use crate::utils::db_time::DbTime;
 
 /// Represents user roles in the system with different access levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum")]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "user_role")]
 pub enum UserRole {
-    #[sea_orm(string_value = "Admin")]
+    #[sea_orm(string_value = "admin")]
     Admin,
-    #[sea_orm(string_value = "Pharmacist")]
+    #[sea_orm(string_value = "pharmacist")]
     Pharmacist,
-    #[sea_orm(string_value = "Staff")]
+    #[sea_orm(string_value = "staff")]
     Staff,
 }
 
@@ -23,10 +24,10 @@ impl FromStr for UserRole {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Admin" => Ok(Self::Admin),
-            "Pharmacist" => Ok(Self::Pharmacist),
-            "Staff" => Ok(Self::Staff),
+        match s.to_lowercase().as_str() {
+            "admin" => Ok(Self::Admin),
+            "pharmacist" => Ok(Self::Pharmacist),
+            "staff" => Ok(Self::Staff),
             _ => Err(format!("Invalid user role: {}", s)),
         }
     }
@@ -100,6 +101,7 @@ impl Entity {
     ) -> ActiveModel {
         let now = DbTime::now().into();
         ActiveModel {
+            id: Set(DbId::new().as_uuid()), // Use DbId utility to generate a new UUID
             username: Set(username),
             email: Set(email),
             password_hash: Set(password_hash),
@@ -107,7 +109,6 @@ impl Entity {
             created_at: Set(now),
             updated_at: Set(now),
             last_login: Set(None),
-            ..Default::default()
         }
     }
 }
