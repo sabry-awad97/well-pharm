@@ -7,6 +7,7 @@ import {
 import TanStackQueryLayout from '@/integrations/tanstack-query/layout.tsx';
 // import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
+import { checkAuth } from '@/api/auth';
 import { checkOnboardingStatus } from '@/api/onboarding';
 import { Toaster } from '@/components/ui/sonner';
 import type { QueryClient } from '@tanstack/react-query';
@@ -15,19 +16,22 @@ interface MyRouterContext {
   queryClient: QueryClient;
 }
 
+// Define public routes that don't require authentication
+const publicRoutes = ['/login', '/onboarding'];
+
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   component: RootComponent,
   beforeLoad: async ({ location, context }) => {
-    // Skip onboarding check if already on the onboarding page
-    if (location.pathname === '/onboarding') {
+    const { pathname } = location;
+    const queryClient = context.queryClient;
+
+    // Skip checks for public routes
+    if (publicRoutes.includes(pathname)) {
       return;
     }
 
     try {
-      // Use the queryClient to prefetch the onboarding status
-      const queryClient = context.queryClient;
-
-      // Check onboarding status
+      // 1. Check onboarding status first
       const isOnboarded = await checkOnboardingStatus();
 
       // Store the result in the query cache for components to use
@@ -35,10 +39,27 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
       // If not onboarded, redirect to onboarding page
       if (!isOnboarded) {
+        console.log('Not onboarded, redirecting to onboarding');
         throw redirect({
           to: '/onboarding',
         });
       }
+
+      // 2. Check authentication status after confirming onboarding is complete
+      const isAuthenticated = await checkAuth();
+
+      // Store the result in the query cache for components to use
+      queryClient.setQueryData(['auth', 'session'], isAuthenticated);
+
+      // If not authenticated, redirect to login page
+      if (!isAuthenticated) {
+        console.log('Not authenticated, redirecting to login');
+        throw redirect({
+          to: '/login',
+        });
+      }
+
+      console.log('Authentication check passed, continuing to requested route');
     } catch (error) {
       // Check if the error is a redirect
       if (error && typeof error === 'object' && 'isRedirect' in error) {
@@ -47,7 +68,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       }
 
       // Log other errors but don't block rendering
-      console.error('Failed to check onboarding status:', error);
+      console.error('Failed to check application status:', error);
     }
   },
 });

@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root';
 import { Route as OnboardingImport } from './routes/onboarding';
+import { Route as LoginImport } from './routes/login';
 import { Route as IndexImport } from './routes/index';
 
 // Create/Update Routes
@@ -19,6 +20,12 @@ import { Route as IndexImport } from './routes/index';
 const OnboardingRoute = OnboardingImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRoute,
+} as any);
+
+const LoginRoute = LoginImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRoute,
 } as any);
 
@@ -39,6 +46,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport;
       parentRoute: typeof rootRoute;
     };
+    '/login': {
+      id: '/login';
+      path: '/login';
+      fullPath: '/login';
+      preLoaderRoute: typeof LoginImport;
+      parentRoute: typeof rootRoute;
+    };
     '/onboarding': {
       id: '/onboarding';
       path: '/onboarding';
@@ -53,36 +67,41 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
+  '/login': typeof LoginRoute;
   '/onboarding': typeof OnboardingRoute;
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
+  '/login': typeof LoginRoute;
   '/onboarding': typeof OnboardingRoute;
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute;
   '/': typeof IndexRoute;
+  '/login': typeof LoginRoute;
   '/onboarding': typeof OnboardingRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/onboarding';
+  fullPaths: '/' | '/login' | '/onboarding';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/onboarding';
-  id: '__root__' | '/' | '/onboarding';
+  to: '/' | '/login' | '/onboarding';
+  id: '__root__' | '/' | '/login' | '/onboarding';
   fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  LoginRoute: typeof LoginRoute;
   OnboardingRoute: typeof OnboardingRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
 };
 
@@ -97,11 +116,15 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/login",
         "/onboarding"
       ]
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/login": {
+      "filePath": "login.tsx"
     },
     "/onboarding": {
       "filePath": "onboarding.tsx"
