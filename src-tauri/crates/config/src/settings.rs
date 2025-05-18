@@ -30,17 +30,22 @@ impl Default for JwtConfig {
 pub struct Settings {
     pub app: AppConfig,
     pub database: DatabaseConfig,
+    /// JWT configuration
+    #[serde(default)]
+    pub jwt: JwtConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
+    pub workspace_name: String,
+    pub workspace_address: Option<String>,
+    pub workspace_phone: Option<String>,
+    pub workspace_email: Option<String>,
+    pub workspace_license: Option<String>,
     pub name: String,
     pub version: String,
     pub environment: String,
     pub log_level: String,
-    /// JWT configuration
-    #[serde(default)]
-    pub jwt: JwtConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,17 +100,22 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             app: AppConfig {
+                workspace_name: "Default Workspace".to_string(),
+                workspace_address: None,
+                workspace_phone: None,
+                workspace_email: None,
+                workspace_license: None,
                 name: "well-pharm".to_string(),
                 version: "0.1.0".to_string(),
                 environment: "development".to_string(),
                 log_level: "info".to_string(),
-                jwt: JwtConfig::default(),
             },
             database: DatabaseConfig {
                 url: "postgres://postgres:postgres@localhost:5432/well_pharm".to_string(),
                 max_connections: 5,
                 timeout_seconds: 30,
             },
+            jwt: JwtConfig::default(),
         }
     }
 }

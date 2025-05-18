@@ -5,7 +5,7 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 use async_trait::async_trait;
-use db_entity::{User, UserActiveModel, UserModel, UserRole, utils::db_time::DbTime};
+use db_entity::{User, UserActiveModel, UserRole, utils::db_time::DbTime};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
     TransactionTrait,
@@ -16,6 +16,7 @@ use tracing::{info, warn};
 use crate::ServiceError;
 use crate::auth::{JwtManager, TokenStore};
 
+pub use db_entity::UserModel;
 /// Repository interface for user management operations.
 #[async_trait]
 pub trait UserRepository: Send + Sync + 'static {

@@ -22,12 +22,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+chrono = { workspace = true }
 dotenv = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+toml = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }

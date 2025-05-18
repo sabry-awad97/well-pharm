@@ -70,8 +70,10 @@ This document provides a structured checklist of implementation tasks for the We
   - [x] Store JWT secret securely in environment configuration
   - [x] Add token blacklisting for logout functionality
   - [x] Implement proper error handling for authentication failures
+  - [ ] Create database migration for users table
 
 - [ ] Design and implement Product entity:
+
   - [x] Define schema with required fields (name, category, dosage form, etc.)
   - [x] Create ProductRepository interface with CRUD operations
   - [x] Implement SeaOrmProductRepository with database operations
@@ -79,3 +81,8 @@ This document provides a structured checklist of implementation tasks for the We
   - [x] Integrate with ServiceManager
   - [ ] Create database migration for products table
   - [x] Write unit tests for repository implementation
+
+- [ ] Design and implement Inventory entity:
+  - [ ] Define schema for stock tracking
+  - [ ] Create repository interface and implementation
+  - [ ] Add methods for stock level management

@@ -1,116 +1,9 @@
+use ipc::create_handler;
 use tauri::Manager;
 use tracing::{error, info, warn};
-use db_service::{ServiceManager, };
-use serde::{Deserialize, Serialize};
-use tauri::State;
 
-#[derive(Serialize)]
-struct LoginResponse {
-    user: UserResponse,
-    access_token: String,
-    refresh_token: String,
-}
-
-#[derive(Serialize)]
-struct UserResponse {
-    id: String,
-    username: String,
-    email: String,
-    role: String,
-}
-
-#[derive(Deserialize)]
-struct LoginRequest {
-    username_or_email: String,
-    password: String,
-}
-
-#[derive(Deserialize)]
-struct RefreshTokenRequest {
-    refresh_token: String,
-}
-
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
-async fn login(
-    request: LoginRequest,
-    service_manager: State<'_, ServiceManager>,
-) -> Result<LoginResponse, String> {
-    let user_repo = service_manager.user_repository();
-    let jwt_manager = service_manager.jwt_manager();
-    
-    let result = user_repo
-        .login(&request.username_or_email, &request.password, jwt_manager)
-        .await
-        .map_err(|e| e.to_string())?;
-    
-    match result {
-        Some((user, access_token, refresh_token)) => {
-            Ok(LoginResponse {
-                user: UserResponse {
-                    id: user.id.to_string(),
-                    username: user.username,
-                    email: user.email,
-                    role: user.role.to_string(),
-                },
-                access_token,
-                refresh_token,
-            })
-        },
-        None => Err("Invalid credentials".to_string()),
-    }
-}
-
-#[tauri::command]
-async fn refresh_token(
-    request: RefreshTokenRequest,
-    service_manager: State<'_, ServiceManager>,
-) -> Result<LoginResponse, String> {
-    let user_repo = service_manager.user_repository();
-    let jwt_manager = service_manager.jwt_manager();
-    let token_store = service_manager.token_store();
-    
-    let result = user_repo
-        .refresh_token(&request.refresh_token, jwt_manager, token_store)
-        .await
-        .map_err(|e| e.to_string())?;
-    
-    match result {
-        Some((user, access_token)) => {
-            Ok(LoginResponse {
-                user: UserResponse {
-                    id: user.id.to_string(),
-                    username: user.username,
-                    email: user.email,
-                    role: user.role.to_string(),
-                },
-                access_token,
-                refresh_token: request.refresh_token,
-            })
-        },
-        None => Err("Invalid refresh token".to_string()),
-    }
-}
-
-#[tauri::command]
-async fn logout(
-    token: String,
-    service_manager: State<'_, ServiceManager>,
-) -> Result<(), String> {
-    let user_repo = service_manager.user_repository();
-    let jwt_manager = service_manager.jwt_manager();
-    let token_store = service_manager.token_store();
-    
-    user_repo
-        .logout(&token, jwt_manager, token_store)
-        .await
-        .map_err(|e| e.to_string())
-}
+mod ipc;
+mod services;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
@@ -125,7 +18,8 @@ pub async fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle().clone();
-
+            // Manage the AppHandle as state
+            app.manage(handle.clone());
             // Set up database connection in a separate thread
             tokio::spawn(async move {
                 let db_url = &config.database.url.to_owned();
@@ -208,12 +102,7 @@ pub async fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            greet, 
-            login, 
-            refresh_token, 
-            logout
-        ])
+        .invoke_handler(create_handler())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
