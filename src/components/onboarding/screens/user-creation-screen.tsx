@@ -81,7 +81,7 @@ export function UserCreationScreen({
       animate="visible"
     >
       <ScrollArea className="h-full w-full">
-        <div className="w-full max-w-md space-y-4 mx-auto">
+        <div className="mx-auto w-full max-w-md space-y-4">
           <motion.div variants={itemVariants} className="text-center">
             <h2 className="text-2xl font-bold tracking-tight">
               Create Administrator Account
@@ -104,7 +104,10 @@ export function UserCreationScreen({
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1">
                       <User className="text-muted-foreground h-3.5 w-3.5" />
-                      <Label htmlFor="adminName" className="text-xs font-medium">
+                      <Label
+                        htmlFor="adminName"
+                        className="text-xs font-medium"
+                      >
                         Full Name
                       </Label>
                     </div>
@@ -121,7 +124,10 @@ export function UserCreationScreen({
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1">
                       <Mail className="text-muted-foreground h-3.5 w-3.5" />
-                      <Label htmlFor="adminEmail" className="text-xs font-medium">
+                      <Label
+                        htmlFor="adminEmail"
+                        className="text-xs font-medium"
+                      >
                         Email Address
                       </Label>
                     </div>
