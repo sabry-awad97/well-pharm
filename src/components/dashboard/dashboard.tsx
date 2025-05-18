@@ -1,3 +1,4 @@
+import { useDashboardData } from '@/api/dashboard';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,8 +10,6 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { createComponentLogger } from '@/lib/logger';
-import { useNavigate } from '@tanstack/react-router';
-import { invoke } from '@tauri-apps/api/core';
 import {
   AlertCircle,
   Calendar,
@@ -20,92 +19,37 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { StatCard } from './stat-card';
 
 // Create a component-specific logger
 const log = createComponentLogger('Dashboard');
 
-interface DashboardStats {
-  patients: number;
-  inventory: number;
-  prescriptions: number;
-  revenue: number;
-}
-
 export function Dashboard() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>({
-    patients: 0,
-    inventory: 0,
-    prescriptions: 0,
-    revenue: 0,
-  });
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    log.debug('Dashboard component mounted');
-
-    const checkOnboarding = async () => {
-      try {
-        log.info('Checking onboarding status');
-        const isOnboarded = await invoke<boolean>('check_onboarding_status');
-
-        if (!isOnboarded) {
-          log.info('Onboarding not completed, redirecting to onboarding page');
-          navigate({ to: '/onboarding', replace: true });
-          return;
-        }
-
-        log.info('Onboarding completed, loading dashboard data');
-
-        // In a real app, we would fetch actual data from the backend
-        // For now, we're using mock data
-        setStats({
-          patients: 1248,
-          inventory: 567,
-          prescriptions: 89,
-          revenue: 24680,
-        });
-
-        log.debug('Dashboard data loaded successfully', { stats });
-      } catch (err) {
-        log.error(
-          'Failed to check onboarding status or load dashboard data',
-          err,
-        );
-        setError('Failed to load dashboard data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkOnboarding();
-
-    return () => {
-      log.debug('Dashboard component unmounting');
-    };
-  }, [navigate, stats]);
+  const {
+    isLoading,
+    isError,
+    error,
+    stats,
+    lowStockItems,
+    recentPatients,
+    recentPrescriptions,
+    systemAlerts,
+    refreshData,
+    isFetching,
+  } = useDashboardData();
 
   const handleRefresh = () => {
     log.info('Manual refresh requested');
-    setIsLoading(true);
-
-    // Simulate a refresh by setting a timeout
-    setTimeout(() => {
-      // Update stats with slightly different values to simulate real data changes
-      setStats(prevStats => ({
-        patients: prevStats.patients + Math.floor(Math.random() * 10),
-        inventory: prevStats.inventory + Math.floor(Math.random() * 5),
-        prescriptions: prevStats.prescriptions + Math.floor(Math.random() * 3),
-        revenue: prevStats.revenue + Math.floor(Math.random() * 1000),
-      }));
-
-      setIsLoading(false);
-      log.info('Dashboard data refreshed');
-    }, 800);
+    refreshData();
   };
+
+  useEffect(() => {
+    log.debug('Dashboard component mounted');
+    return () => {
+      log.debug('Dashboard component unmounting');
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -115,13 +59,29 @@ export function Dashboard() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <AlertCircle className="text-destructive h-12 w-12" />
         <h2 className="text-xl font-semibold">Error Loading Dashboard</h2>
-        <p className="text-muted-foreground">{error}</p>
-        <Button onClick={() => window.location.reload()}>Try Again</Button>
+        <p className="text-muted-foreground">
+          {error instanceof Error ? error.message : 'An unknown error occurred'}
+        </p>
+        <Button onClick={handleRefresh}>Try Again</Button>
+      </div>
+    );
+  }
+
+  // If we get here, we should have data
+  if (!stats) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <AlertCircle className="h-12 w-12 text-yellow-500" />
+        <h2 className="text-xl font-semibold">No Dashboard Data</h2>
+        <p className="text-muted-foreground">
+          No dashboard data is available. This might be a temporary issue.
+        </p>
+        <Button onClick={handleRefresh}>Refresh</Button>
       </div>
     );
   }
@@ -146,10 +106,14 @@ export function Dashboard() {
               size="sm"
               className="gap-1"
               onClick={handleRefresh}
-              disabled={isLoading}
+              disabled={isFetching}
             >
-              <Clock className="h-4 w-4" />
-              Refresh
+              {isFetching ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-b-transparent" />
+              ) : (
+                <Clock className="h-4 w-4" />
+              )}
+              {isFetching ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
         </div>
@@ -157,33 +121,33 @@ export function Dashboard() {
         <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Patients"
-            value={stats.patients.toString()}
-            description="since last month"
+            value={stats.patients.total.toString()}
+            description={`since last ${stats.patients.trendPeriod}`}
             icon={<Users className="h-3.5 w-3.5" />}
             trend="up"
-            trendValue="+12.5%"
+            trendValue={`+${stats.patients.trend}%`}
           />
           <StatCard
             title="Inventory Items"
-            value={stats.inventory.toString()}
+            value={stats.inventory.total.toString()}
             description="in stock"
             icon={<Package className="h-3.5 w-3.5" />}
           />
           <StatCard
             title="Prescriptions"
-            value={stats.prescriptions.toString()}
-            description="this week"
+            value={stats.prescriptions.total.toString()}
+            description={`this ${stats.prescriptions.trendPeriod}`}
             icon={<Pill className="h-3.5 w-3.5" />}
             trend="up"
-            trendValue="+4.3%"
+            trendValue={`+${stats.prescriptions.trend}%`}
           />
           <StatCard
             title="Revenue"
-            value={`$${stats.revenue.toLocaleString()}`}
-            description="this month"
+            value={`$${stats.revenue.total.toLocaleString()}`}
+            description={`this ${stats.revenue.trendPeriod}`}
             icon={<TrendingUp className="h-3.5 w-3.5" />}
             trend="up"
-            trendValue="+8.2%"
+            trendValue={`+${stats.revenue.trend}%`}
           />
         </div>
 
@@ -211,37 +175,17 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="font-medium">Paracetamol 500mg</div>
-                    <div className="text-muted-foreground">15%</div>
+                {lowStockItems?.map(item => (
+                  <div key={item.id} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-muted-foreground">
+                        {item.percentRemaining}%
+                      </div>
+                    </div>
+                    <Progress value={item.percentRemaining} className="h-2" />
                   </div>
-                  <Progress value={15} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="font-medium">Amoxicillin 250mg</div>
-                    <div className="text-muted-foreground">32%</div>
-                  </div>
-                  <Progress value={32} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="font-medium">Ibuprofen 400mg</div>
-                    <div className="text-muted-foreground">78%</div>
-                  </div>
-                  <Progress value={78} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="font-medium">Cetirizine 10mg</div>
-                    <div className="text-muted-foreground">8%</div>
-                  </div>
-                  <Progress value={8} className="h-2" />
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -255,14 +199,14 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex items-center gap-4">
+                {recentPatients?.map(patient => (
+                  <div key={patient.id} className="flex items-center gap-4">
                     <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
                       <Users className="text-primary h-5 w-5" />
                     </div>
                     <div className="flex-1 space-y-1">
                       <p className="text-sm leading-none font-medium">
-                        Patient {i}
+                        {patient.name}
                       </p>
                       <p className="text-muted-foreground text-xs">
                         Registered today
@@ -284,17 +228,20 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex items-center gap-4">
+                {recentPrescriptions?.map(prescription => (
+                  <div
+                    key={prescription.id}
+                    className="flex items-center gap-4"
+                  >
                     <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
                       <Pill className="text-primary h-5 w-5" />
                     </div>
                     <div className="flex-1 space-y-1">
                       <p className="text-sm leading-none font-medium">
-                        Prescription {i}
+                        {prescription.patientName}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        Issued today
+                        {prescription.medicationName}
                       </p>
                     </div>
                     <Button variant="ghost" size="sm">
@@ -313,56 +260,36 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500">
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm leading-none font-medium">
-                      Low Stock Alert
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      4 items below threshold
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    View
-                  </Button>
-                </div>
+                {systemAlerts?.map(alert => {
+                  // Determine the color based on alert type
+                  const alertColor = {
+                    warning: 'yellow-500',
+                    info: 'blue-500',
+                    error: 'red-500',
+                    success: 'green-500',
+                  }[alert.type];
 
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10 text-green-500">
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm leading-none font-medium">
-                      System Update
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      New version available
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    View
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm leading-none font-medium">
-                      Maintenance Notice
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      Scheduled for next week
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    View
-                  </Button>
-                </div>
+                  return (
+                    <div key={alert.id} className="flex items-center gap-4">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-full bg-${alertColor}/10 text-${alertColor}`}
+                      >
+                        <AlertCircle className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm leading-none font-medium">
+                          {alert.title}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {alert.description}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        View
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -371,5 +298,3 @@ export function Dashboard() {
     </MainLayout>
   );
 }
-
-
