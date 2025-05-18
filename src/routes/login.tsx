@@ -91,11 +91,15 @@ function LoginPageWrapper() {
         const isAuthenticated = await checkAuth();
 
         if (isAuthenticated) {
-          LoginPageWrapperLog.info('User is authenticated, redirecting to dashboard');
+          LoginPageWrapperLog.info(
+            'User is authenticated, redirecting to dashboard',
+          );
 
           // Try to get previous location from history or session storage
           const previousPath = sessionStorage.getItem('previousPath') || '/';
-          LoginPageWrapperLog.debug('Navigating to previous path', { path: previousPath });
+          LoginPageWrapperLog.debug('Navigating to previous path', {
+            path: previousPath,
+          });
 
           // Navigate to previous path or dashboard
           navigate({
@@ -103,7 +107,9 @@ function LoginPageWrapper() {
             replace: true,
           });
         } else {
-          LoginPageWrapperLog.debug('User is not authenticated, showing login page');
+          LoginPageWrapperLog.debug(
+            'User is not authenticated, showing login page',
+          );
         }
       } catch (error) {
         LoginPageWrapperLog.error('Error checking auth status', error);

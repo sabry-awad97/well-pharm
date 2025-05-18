@@ -1,14 +1,5 @@
 import { useDashboardData } from '@/api/dashboard';
-import { MainLayout } from '@/components/layout/main-layout';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { createComponentLogger } from '@/lib/logger';
 import {
   AlertCircle,
@@ -19,8 +10,13 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { MainLayout } from '../layout/main-layout';
+import { AlertsCard } from './alerts-card';
+import { InventoryStatusCard } from './inventory-status-card';
+import { RecentPatientsCard } from './recent-patients-card';
+import { RecentPrescriptionsCard } from './recent-prescriptions-card';
 import { StatCard } from './stat-card';
+import { WeeklyOverviewCard } from './weekly-overview-card';
 
 // Create a component-specific logger
 const log = createComponentLogger('Dashboard');
@@ -43,13 +39,6 @@ export function Dashboard() {
     log.info('Manual refresh requested');
     refreshData();
   };
-
-  useEffect(() => {
-    log.debug('Dashboard component mounted');
-    return () => {
-      log.debug('Dashboard component unmounting');
-    };
-  }, []);
 
   if (isLoading) {
     return (
@@ -152,147 +141,17 @@ export function Dashboard() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
-            <CardHeader>
-              <CardTitle>Weekly Overview</CardTitle>
-              <CardDescription>
-                Pharmacy performance for the past week
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-muted-foreground flex h-[240px] items-center justify-center">
-                Chart will be displayed here
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="col-span-3">
-            <CardHeader>
-              <CardTitle>Inventory Status</CardTitle>
-              <CardDescription>
-                Low stock items that need attention
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {lowStockItems?.map(item => (
-                  <div key={item.id} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-muted-foreground">
-                        {item.percentRemaining}%
-                      </div>
-                    </div>
-                    <Progress value={item.percentRemaining} className="h-2" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <WeeklyOverviewCard
+            onRefresh={handleRefresh}
+            isFetching={isFetching}
+          />
+          <InventoryStatusCard lowStockItems={lowStockItems} />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Patients</CardTitle>
-              <CardDescription>Latest patient registrations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentPatients?.map(patient => (
-                  <div key={patient.id} className="flex items-center gap-4">
-                    <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
-                      <Users className="text-primary h-5 w-5" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm leading-none font-medium">
-                        {patient.name}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        Registered today
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Prescriptions</CardTitle>
-              <CardDescription>Latest prescriptions issued</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentPrescriptions?.map(prescription => (
-                  <div
-                    key={prescription.id}
-                    className="flex items-center gap-4"
-                  >
-                    <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
-                      <Pill className="text-primary h-5 w-5" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm leading-none font-medium">
-                        {prescription.patientName}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {prescription.medicationName}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Alerts</CardTitle>
-              <CardDescription>System notifications and alerts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {systemAlerts?.map(alert => {
-                  // Determine the color based on alert type
-                  const alertColor = {
-                    warning: 'yellow-500',
-                    info: 'blue-500',
-                    error: 'red-500',
-                    success: 'green-500',
-                  }[alert.type];
-
-                  return (
-                    <div key={alert.id} className="flex items-center gap-4">
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full bg-${alertColor}/10 text-${alertColor}`}
-                      >
-                        <AlertCircle className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm leading-none font-medium">
-                          {alert.title}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {alert.description}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="sm">
-                        View
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <RecentPatientsCard recentPatients={recentPatients} />
+          <RecentPrescriptionsCard recentPrescriptions={recentPrescriptions} />
+          <AlertsCard systemAlerts={systemAlerts} />
         </div>
       </div>
     </MainLayout>
