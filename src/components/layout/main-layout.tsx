@@ -1,4 +1,5 @@
 import { Sidebar } from '@/components/layout/sidebar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const [, setIsSidebarCollapsed] = useState(false);
+  const [_isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Update sidebar state when screen size changes
@@ -42,11 +43,13 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Sidebar className="z-50 shrink-0" />
       <main
         className={cn(
-          'flex-1 overflow-auto transition-all duration-300 ease-in-out',
+          'flex-1 overflow-hidden transition-all duration-300 ease-in-out',
           !isDesktop && 'ml-0',
         )}
       >
-        <div className="h-full px-4 py-4">{children}</div>
+        <ScrollArea className="h-full w-full">
+          <div className="px-4 py-4">{children}</div>
+        </ScrollArea>
       </main>
     </div>
   );
