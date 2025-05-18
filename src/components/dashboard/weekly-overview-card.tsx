@@ -13,18 +13,20 @@ import {
   BarChart2,
   Clock,
   LineChartIcon,
-} from 'lucide-react'; // Added icons
+  Scale, // Added Scale icon for comparison toggle
+} from 'lucide-react';
 import * as React from 'react';
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line, // Added Line for LineChart
-  LineChart, // Added LineChart
+  Line,
+  LineChart,
   XAxis,
   YAxis,
 } from 'recharts';
 import { DashboardCard } from './dashboard-card';
+import { motion, AnimatePresence } from 'framer-motion'; // Import Framer Motion
 
 // Helper to get the start of a week (Monday)
 const getStartOfWeek = (date: Date): Date => {
@@ -60,13 +62,13 @@ const fetchWeeklyData = async (startDate: Date): Promise<DailyData[]> => {
 };
 
 interface WeeklyOverviewCardProps {
-  onRefresh: () => void; // This prop might be re-purposed or used alongside internal refresh
-  isFetching: boolean; // This prop might indicate an overall app fetching state
+  onRefresh: () => void;
+  isFetching: boolean;
 }
 
 export function WeeklyOverviewCard({
-  onRefresh: onParentRefresh, // Renamed to avoid conflict
-  isFetching: isParentFetching, // Renamed
+  onRefresh: onParentRefresh,
+  isFetching: isParentFetching,
 }: WeeklyOverviewCardProps) {
   const [currentStartDate, setCurrentStartDate] = React.useState<Date>(() =>
     getStartOfWeek(new Date()),
@@ -76,6 +78,7 @@ export function WeeklyOverviewCard({
     [],
   );
   const [chartType, setChartType] = React.useState<'bar' | 'line'>('bar');
+  const [isComparing, setIsComparing] = React.useState(false); // New state for comparison view
   const [isLoadingData, setIsLoadingData] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -133,10 +136,28 @@ export function WeeklyOverviewCard({
     </Button>
   );
 
+  // Prepare data for comparison chart
+  const comparisonChartData = React.useMemo(() => {
+    // Assuming chartData and previousWeekData are aligned by day index
+    return chartData.map((item, index) => ({
+      day: item.day,
+      currentPrescriptions: item.prescriptions,
+      previousPrescriptions: previousWeekData[index]?.prescriptions || 0, // Handle case where prev data might be missing
+    }));
+  }, [chartData, previousWeekData]);
+
   const chartConfig = {
     prescriptions: {
       label: 'Prescriptions',
       color: 'hsl(var(--chart-1))',
+    },
+    currentPrescriptions: { // Config for comparison view
+      label: 'Current Week',
+      color: 'hsl(var(--chart-1))',
+    },
+    previousPrescriptions: { // Config for comparison view
+      label: 'Previous Week',
+      color: 'hsl(var(--chart-2))', // Use a different color for comparison
     },
   } satisfies ChartConfig;
 
@@ -196,7 +217,7 @@ export function WeeklyOverviewCard({
       action={refreshButton}
       isLoading={cardIsLoading}
     >
-      <div className="space-y-4 p-4">
+      <div className="space-y-3 p-3"> {/* Adjusted padding */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button
@@ -234,6 +255,18 @@ export function WeeklyOverviewCard({
             </Button>
           </div>
           <div className="flex items-center gap-2">
+             {/* Comparison Toggle */}
+             <Button
+              variant={isComparing ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setIsComparing(prev => !prev)}
+              disabled={cardIsLoading || chartData.length === 0}
+              aria-label="Toggle comparison view"
+            >
+              <Scale className="mr-2 h-4 w-4" />
+              Compare
+            </Button>
+            {/* Chart Type Toggle */}
             <Button
               variant={chartType === 'bar' ? 'default' : 'outline'}
               size="sm"
@@ -261,109 +294,170 @@ export function WeeklyOverviewCard({
           </div>
         )}
 
-        {!error && (
-          <>
-            <div className="h-[240px] px-2">
-              <ChartContainer config={chartConfig} className="h-full w-full">
-                {chartType === 'bar' ? (
-                  <BarChart
-                    accessibilityLayer
-                    data={chartData}
-                    margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
+        {/* Animate presence for fade-in after loading */}
+        <AnimatePresence mode="wait">
+          {!error && !cardIsLoading && (
+            <motion.div
+              key="chart-content" // Key for AnimatePresence
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-3" // Adjusted spacing
+            >
+              <div className="h-[240px] px-2">
+                {/* AnimatePresence for chart type transition */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                     key={chartType} // Key changes when chartType changes
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     transition={{ duration: 0.3 }}
+                     className="h-full w-full" // Ensure motion div fills container
                   >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="day"
-                      tickLine={false}
-                      tickMargin={10}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={10}
-                      tickFormatter={value => value.toString()}
-                    />
-                    <ChartTooltip
-                      cursor={true}
-                      content={<ChartTooltipContent indicator="dashed" />}
-                    />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar
-                      dataKey="prescriptions"
-                      fill="var(--color-prescriptions)"
-                      radius={4}
-                    />
-                  </BarChart>
-                ) : (
-                  <LineChart
-                    accessibilityLayer
-                    data={chartData}
-                    margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
-                  >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="day"
-                      tickLine={false}
-                      tickMargin={10}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={10}
-                      tickFormatter={value => value.toString()}
-                    />
-                    <ChartTooltip
-                      cursor={true}
-                      content={<ChartTooltipContent indicator="dot" />}
-                    />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="prescriptions"
-                      stroke="var(--color-prescriptions)"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: 'var(--color-prescriptions)' }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                )}
-              </ChartContainer>
-            </div>
+                    <ChartContainer config={chartConfig} className="h-full w-full">
+                      {chartType === 'bar' ? (
+                        <BarChart
+                          accessibilityLayer
+                          data={isComparing ? comparisonChartData : chartData} // Use comparison data if comparing
+                          margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
+                        >
+                          <CartesianGrid vertical={false} />
+                          <XAxis
+                            dataKey="day"
+                            tickLine={false}
+                            tickMargin={10}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={10}
+                            tickFormatter={value => value.toString()}
+                          />
+                          <ChartTooltip
+                            cursor={true}
+                            content={<ChartTooltipContent indicator="dashed" />}
+                          />
+                          <ChartLegend content={<ChartLegendContent />} />
+                          {isComparing ? (
+                            <>
+                              <Bar
+                                dataKey="previousPrescriptions"
+                                fill="var(--color-previous-prescriptions)"
+                                radius={[4, 4, 0, 0]} // Rounded top corners
+                                stackId="a" // Stack bars if needed, or remove for side-by-side
+                              />
+                               <Bar
+                                dataKey="currentPrescriptions"
+                                fill="var(--color-current-prescriptions)"
+                                radius={[4, 4, 0, 0]}
+                                stackId="a" // Stack bars if needed, or remove for side-by-side
+                              />
+                            </>
+                          ) : (
+                            <Bar
+                              dataKey="prescriptions"
+                              fill="var(--color-prescriptions)"
+                              radius={4}
+                            />
+                          )}
+                        </BarChart>
+                      ) : (
+                        <LineChart
+                          accessibilityLayer
+                          data={isComparing ? comparisonChartData : chartData} // Use comparison data if comparing
+                          margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
+                        >
+                          <CartesianGrid vertical={false} />
+                          <XAxis
+                            dataKey="day"
+                            tickLine={false}
+                            tickMargin={10}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={10}
+                            tickFormatter={value => value.toString()}
+                          />
+                          <ChartTooltip
+                            cursor={true}
+                            content={<ChartTooltipContent indicator="dot" />}
+                          />
+                          <ChartLegend content={<ChartLegendContent />} />
+                           {isComparing ? (
+                            <>
+                              <Line
+                                type="monotone"
+                                dataKey="previousPrescriptions"
+                                stroke="var(--color-previous-prescriptions)"
+                                strokeWidth={2}
+                                dot={{ r: 4, fill: "var(--color-previous-prescriptions)" }}
+                                activeDot={{ r: 6 }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="currentPrescriptions"
+                                stroke="var(--color-current-prescriptions)"
+                                strokeWidth={2}
+                                dot={{ r: 4, fill: "var(--color-current-prescriptions)" }}
+                                activeDot={{ r: 6 }}
+                              />
+                            </>
+                          ) : (
+                            <Line
+                              type="monotone"
+                              dataKey="prescriptions"
+                              stroke="var(--color-prescriptions)"
+                              strokeWidth={2}
+                              dot={{ r: 4, fill: 'var(--color-prescriptions)' }}
+                              activeDot={{ r: 6 }}
+                            />
+                          )}
+                        </LineChart>
+                      )}
+                    </ChartContainer>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4">
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  Total Prescriptions
-                </p>
-                <p className="text-lg font-semibold">
-                  {totalCurrentWeekPrescriptions.toLocaleString()}
-                </p>
+              {/* Summary Section */}
+              <div className="grid grid-cols-2 gap-3 border-t pt-3 md:grid-cols-4"> {/* Adjusted gap and padding */}
+                <div>
+                  <p className="text-muted-foreground text-sm">
+                    Total Prescriptions
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {totalCurrentWeekPrescriptions.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm">
+                    vs. Previous Week
+                  </p>
+                  <p
+                    className={`text-lg font-semibold ${percentageChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                  >
+                    {percentageChange.toFixed(1)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm">Daily Average</p>
+                  <p className="text-lg font-semibold">
+                    {dailyAverage.toFixed(1)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm">Busiest Day</p>
+                  <p className="text-lg font-semibold">{busiestDay}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  vs. Previous Week
-                </p>
-                <p
-                  className={`text-lg font-semibold ${percentageChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                >
-                  {percentageChange.toFixed(1)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm">Daily Average</p>
-                <p className="text-lg font-semibold">
-                  {dailyAverage.toFixed(1)}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm">Busiest Day</p>
-                <p className="text-lg font-semibold">{busiestDay}</p>
-              </div>
-            </div>
-          </>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </DashboardCard>
   );
