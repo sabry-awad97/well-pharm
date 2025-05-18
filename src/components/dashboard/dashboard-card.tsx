@@ -38,7 +38,7 @@ export function DashboardCard({
     <Card className={cn('overflow-hidden shadow-sm', className)}>
       <CardHeader
         className={cn(
-          'flex flex-row items-start justify-between space-y-0 pb-4',
+          'flex flex-row items-start justify-between space-y-0',
           headerClassName,
         )}
       >
@@ -52,7 +52,7 @@ export function DashboardCard({
         </div>
         {action && <div className="ml-auto">{action}</div>}
       </CardHeader>
-      <CardContent className={cn('px-6 pt-0 pb-4', contentClassName)}>
+      <CardContent className={cn('px-6 pt-0', contentClassName)}>
         {isLoading ? (
           <div className="flex h-32 items-center justify-center">
             <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
