@@ -35,8 +35,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { DashboardCard } from './dashboard-card';
 import { toast } from 'sonner';
+import { DashboardCard } from './dashboard-card';
 
 // Helper to get the start of a week (Monday)
 const getStartOfWeek = (date: Date): Date => {
@@ -308,15 +308,15 @@ export function WeeklyOverviewCard({
       ) : (
         <div className="space-y-4">
           {/* Adjusted padding and spacing */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:space-y-0">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Date Picker */}
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      'w-[180px] justify-start text-left font-normal',
+                      'w-full justify-start text-left font-normal sm:w-[180px]',
                       !currentStartDate && 'text-muted-foreground',
                     )}
                     disabled={cardIsLoading}
@@ -343,66 +343,79 @@ export function WeeklyOverviewCard({
                 </PopoverContent>
               </Popover>
               {/* Prev/Next Week Buttons */}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleDateChange('prev')}
-                disabled={cardIsLoading}
-                aria-label="Previous week"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleDateChange('next')}
-                disabled={cardIsLoading}
-                aria-label="Next week"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleDateChange('prev')}
+                  disabled={cardIsLoading}
+                  aria-label="Previous week"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleDateChange('next')}
+                  disabled={cardIsLoading}
+                  aria-label="Next week"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Export Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExport}
-                disabled={cardIsLoading || chartData.length === 0}
-              >
-                <DownloadIcon className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-              {/* Comparison Toggle */}
-              <Button
-                variant={isComparing ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIsComparing(prev => !prev)}
-                disabled={cardIsLoading || chartData.length === 0}
-                aria-label="Toggle comparison view"
-              >
-                <Scale className="mr-2 h-4 w-4" />
-                Compare
-              </Button>
-              {/* Chart Type Toggle */}
-              <Button
-                variant={chartType === 'bar' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setChartType('bar')}
-                disabled={cardIsLoading}
-              >
-                <BarChart2 className="mr-2 h-4 w-4" />
-                Bar
-              </Button>
-              <Button
-                variant={chartType === 'line' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setChartType('line')}
-                disabled={cardIsLoading}
-              >
-                <LineChartIcon className="mr-2 h-4 w-4" />
-                Line
-              </Button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                {/* Chart Type Toggle - Simplified for mobile */}
+                <Button
+                  variant={chartType === 'bar' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setChartType('bar')}
+                  disabled={cardIsLoading}
+                  className="px-2 sm:px-3"
+                >
+                  <BarChart2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Bar</span>
+                </Button>
+                <Button
+                  variant={chartType === 'line' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setChartType('line')}
+                  disabled={cardIsLoading}
+                  className="px-2 sm:px-3"
+                >
+                  <LineChartIcon className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Line</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {/* Comparison Toggle */}
+                <Button
+                  variant={isComparing ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setIsComparing(prev => !prev)}
+                  disabled={cardIsLoading || chartData.length === 0}
+                  aria-label="Toggle comparison view"
+                  className="px-2 sm:px-3"
+                >
+                  <Scale className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Compare</span>
+                </Button>
+
+                {/* Export Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={cardIsLoading || chartData.length === 0}
+                  className="px-2 sm:px-3"
+                >
+                  <DownloadIcon className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </div>
             </div>
           </div>
           {/* Animate presence for chart type transition */}
@@ -415,44 +428,74 @@ export function WeeklyOverviewCard({
               transition={{ duration: 0.3 }}
               className="h-[240px] px-2"
             >
-              <ChartContainer config={chartConfig} className="h-full w-full">
+              <ChartContainer
+                config={chartConfig}
+                className="h-full w-full"
+                aria-hidden="false"
+              >
                 {chartType === 'bar' ? (
                   <BarChart
                     accessibilityLayer
                     data={isComparing ? comparisonChartData : chartData}
                     margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
+                    className="transition-all duration-300 ease-in-out"
                   >
-                    <CartesianGrid vertical={false} />
+                    <CartesianGrid
+                      vertical={false}
+                      stroke="var(--color-chart-grid)"
+                      strokeDasharray="3 3"
+                    />
                     <XAxis
                       dataKey="day"
                       tickLine={false}
                       tickMargin={10}
                       axisLine={false}
+                      className="text-xs font-medium"
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
                       tickFormatter={value => value.toString()}
+                      className="text-xs"
+                      width={30}
                     />
                     <ChartTooltip
-                      cursor={true}
-                      content={<ChartTooltipContent indicator="dashed" />}
+                      cursor={{
+                        fill: 'var(--color-chart-grid)',
+                        opacity: 0.1,
+                        radius: 4,
+                      }}
+                      content={
+                        <ChartTooltipContent
+                          indicator="dashed"
+                          className="border-color-chart-tooltip-border bg-color-chart-tooltip-bg shadow-md backdrop-blur-sm"
+                        />
+                      }
                     />
-                    <ChartLegend content={<ChartLegendContent />} />
+                    <ChartLegend
+                      content={
+                        <ChartLegendContent className="text-xs font-medium" />
+                      }
+                      verticalAlign="top"
+                      height={36}
+                    />
                     {isComparing ? (
                       <>
                         <Bar
                           dataKey="previousPrescriptions"
                           fill="var(--color-previous-prescriptions)"
                           radius={[4, 4, 0, 0]}
-                          // Remove stackId if you want side-by-side bars
+                          animationDuration={800}
+                          animationEasing="ease-out"
+                          className="opacity-80"
                         />
                         <Bar
                           dataKey="currentPrescriptions"
                           fill="var(--color-current-prescriptions)"
                           radius={[4, 4, 0, 0]}
-                          // Remove stackId if you want side-by-side bars
+                          animationDuration={800}
+                          animationEasing="ease-out"
                         />
                       </>
                     ) : (
@@ -460,6 +503,8 @@ export function WeeklyOverviewCard({
                         dataKey="prescriptions"
                         fill="var(--color-prescriptions)"
                         radius={4}
+                        animationDuration={800}
+                        animationEasing="ease-out"
                       />
                     )}
                   </BarChart>
@@ -532,31 +577,73 @@ export function WeeklyOverviewCard({
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4" // Adjusted gap and padding
+            className="grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4"
           >
-            <motion.div variants={itemVariants}>
-              <p className="text-muted-foreground text-sm">
+            <motion.div
+              variants={itemVariants}
+              className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
+            >
+              <p className="text-muted-foreground text-xs font-medium">
                 Total Prescriptions
               </p>
-              <p className="text-lg font-semibold">
+              <p className="text-xl font-bold tracking-tight">
                 {totalCurrentWeekPrescriptions.toLocaleString()}
               </p>
             </motion.div>
-            <motion.div variants={itemVariants}>
-              <p className="text-muted-foreground text-sm">vs. Previous Week</p>
-              <p
-                className={`text-lg font-semibold ${percentageChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
-              >
-                {percentageChange.toFixed(1)}%
+
+            <motion.div
+              variants={itemVariants}
+              className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
+            >
+              <p className="text-muted-foreground text-xs font-medium">
+                vs. Previous Week
+              </p>
+              <div className="flex items-center gap-1">
+                <p
+                  className={cn(
+                    'text-xl font-bold tracking-tight',
+                    percentageChange >= 0
+                      ? 'text-emerald-600 dark:text-emerald-500'
+                      : 'text-red-600 dark:text-red-500',
+                  )}
+                >
+                  {percentageChange.toFixed(1)}%
+                </p>
+                {percentageChange !== 0 && (
+                  <span
+                    className={cn(
+                      'text-xs',
+                      percentageChange > 0
+                        ? 'text-emerald-600 dark:text-emerald-500'
+                        : 'text-red-600 dark:text-red-500',
+                    )}
+                  >
+                    {percentageChange > 0 ? '↑' : '↓'}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
+            >
+              <p className="text-muted-foreground text-xs font-medium">
+                Daily Average
+              </p>
+              <p className="text-xl font-bold tracking-tight">
+                {dailyAverage.toFixed(1)}
               </p>
             </motion.div>
-            <motion.div variants={itemVariants}>
-              <p className="text-muted-foreground text-sm">Daily Average</p>
-              <p className="text-lg font-semibold">{dailyAverage.toFixed(1)}</p>
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <p className="text-muted-foreground text-sm">Busiest Day</p>
-              <p className="text-lg font-semibold">{busiestDay}</p>
+
+            <motion.div
+              variants={itemVariants}
+              className="hover:bg-muted/50 rounded-lg p-2 transition-colors"
+            >
+              <p className="text-muted-foreground text-xs font-medium">
+                Busiest Day
+              </p>
+              <p className="text-xl font-bold tracking-tight">{busiestDay}</p>
             </motion.div>
           </motion.div>
         </div>
