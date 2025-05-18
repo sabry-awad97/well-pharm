@@ -56,6 +56,9 @@ code {
 	--color-prescriptions: hsl(var(--chart-1));
 	--color-current-prescriptions: hsl(var(--chart-1));
 	--color-previous-prescriptions: hsl(var(--chart-2));
+	--color-revenue: hsl(var(--chart-3));
+	--color-current-revenue: hsl(var(--chart-3));
+	--color-previous-revenue: hsl(var(--chart-4));
 	--color-chart-grid: hsl(var(--border) / 0.5);
 	--color-chart-tooltip-bg: hsl(var(--background) / 0.9);
 	--color-chart-tooltip-border: hsl(var(--border));
@@ -98,6 +101,9 @@ code {
 	--color-prescriptions: hsl(var(--chart-1));
 	--color-current-prescriptions: hsl(var(--chart-1));
 	--color-previous-prescriptions: hsl(var(--chart-2));
+	--color-revenue: hsl(var(--chart-3));
+	--color-current-revenue: hsl(var(--chart-3));
+	--color-previous-revenue: hsl(var(--chart-4));
 	--color-chart-grid: hsl(var(--border) / 0.3);
 	--color-chart-tooltip-bg: hsl(var(--background) / 0.9);
 	--color-chart-tooltip-border: hsl(var(--border));
@@ -150,4 +156,3 @@ code {
 		@apply bg-background text-foreground;
 	}
 }
-

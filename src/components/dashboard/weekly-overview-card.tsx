@@ -52,6 +52,7 @@ const getStartOfWeek = (date: Date): Date => {
 interface DailyData {
   day: string;
   prescriptions: number;
+  revenue: number; // Added revenue field
 }
 
 // Mock API function
@@ -66,11 +67,18 @@ const fetchWeeklyData = async (startDate: Date): Promise<DailyData[]> => {
   // }
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  return days.map(day => ({
-    day,
-    prescriptions:
-      Math.floor(Math.random() * ((startDate.getDate() % 10) + 1) * 15) + 20, // Vary data slightly based on date
-  }));
+  return days.map(day => {
+    const prescriptions =
+      Math.floor(Math.random() * ((startDate.getDate() % 10) + 1) * 15) + 20;
+    // Generate revenue based on prescriptions with some variability
+    const revenue = prescriptions * (Math.random() * 50 + 100);
+
+    return {
+      day,
+      prescriptions,
+      revenue: Math.round(revenue), // Round to whole number for simplicity
+    };
+  });
 };
 
 interface WeeklyOverviewCardProps {
@@ -170,6 +178,8 @@ export function WeeklyOverviewCard({
       day: item.day,
       currentPrescriptions: item.prescriptions,
       previousPrescriptions: previousWeekData[index]?.prescriptions || 0, // Handle case where prev data might be missing
+      currentRevenue: item.revenue,
+      previousRevenue: previousWeekData[index]?.revenue || 0,
     }));
   }, [chartData, previousWeekData]);
 
@@ -178,13 +188,25 @@ export function WeeklyOverviewCard({
       label: 'Prescriptions',
       color: 'hsl(var(--chart-1))',
     },
+    revenue: {
+      label: 'Revenue ($)',
+      color: 'hsl(var(--chart-3))',
+    },
     currentPrescriptions: {
-      label: 'Current Week',
+      label: 'Current Week Prescriptions',
       color: 'hsl(var(--chart-1))',
     },
     previousPrescriptions: {
-      label: 'Previous Week',
+      label: 'Previous Week Prescriptions',
       color: 'hsl(var(--chart-2))',
+    },
+    currentRevenue: {
+      label: 'Current Week Revenue',
+      color: 'hsl(var(--chart-3))',
+    },
+    previousRevenue: {
+      label: 'Previous Week Revenue',
+      color: 'hsl(var(--chart-4))',
     },
   } satisfies ChartConfig;
 
@@ -196,6 +218,12 @@ export function WeeklyOverviewCard({
   const totalPreviousWeekPrescriptions = React.useMemo(
     () => previousWeekData.reduce((sum, item) => sum + item.prescriptions, 0),
     [previousWeekData],
+  );
+
+  // Added calculations for revenue
+  const totalCurrentWeekRevenue = React.useMemo(
+    () => chartData.reduce((sum, item) => sum + item.revenue, 0),
+    [chartData],
   );
 
   const percentageChange = React.useMemo(() => {
@@ -437,7 +465,7 @@ export function WeeklyOverviewCard({
                   <BarChart
                     accessibilityLayer
                     data={isComparing ? comparisonChartData : chartData}
-                    margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
+                    margin={{ top: 20, right: 30, bottom: 0, left: 0 }}
                     className="transition-all duration-300 ease-in-out"
                   >
                     <CartesianGrid
@@ -453,12 +481,26 @@ export function WeeklyOverviewCard({
                       className="text-xs font-medium"
                     />
                     <YAxis
+                      yAxisId="left"
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
                       tickFormatter={value => value.toString()}
                       className="text-xs"
                       width={30}
+                      domain={[0, 'auto']}
+                    />
+                    {/* Secondary Y-axis for revenue */}
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={10}
+                      tickFormatter={value => `$${(value / 1000).toFixed(1)}k`}
+                      className="text-xs"
+                      width={50}
+                      domain={[0, 'auto']}
                     />
                     <ChartTooltip
                       cursor={{
@@ -470,6 +512,15 @@ export function WeeklyOverviewCard({
                         <ChartTooltipContent
                           indicator="dashed"
                           className="border-color-chart-tooltip-border bg-color-chart-tooltip-bg shadow-md backdrop-blur-sm"
+                          formatter={(value, name) => {
+                            if (
+                              typeof name === 'string' &&
+                              name.includes('Revenue')
+                            ) {
+                              return [`$${value.toLocaleString()}`, name];
+                            }
+                            return [value, name];
+                          }}
                         />
                       }
                     />
@@ -489,6 +540,7 @@ export function WeeklyOverviewCard({
                           animationDuration={800}
                           animationEasing="ease-out"
                           className="opacity-80"
+                          yAxisId="left"
                         />
                         <Bar
                           dataKey="currentPrescriptions"
@@ -496,23 +548,52 @@ export function WeeklyOverviewCard({
                           radius={[4, 4, 0, 0]}
                           animationDuration={800}
                           animationEasing="ease-out"
+                          yAxisId="left"
+                        />
+                        <Bar
+                          dataKey="previousRevenue"
+                          fill="var(--color-previous-revenue)"
+                          radius={[4, 4, 0, 0]}
+                          animationDuration={800}
+                          animationEasing="ease-out"
+                          className="opacity-80"
+                          yAxisId="right"
+                        />
+                        <Bar
+                          dataKey="currentRevenue"
+                          fill="var(--color-current-revenue)"
+                          radius={[4, 4, 0, 0]}
+                          animationDuration={800}
+                          animationEasing="ease-out"
+                          yAxisId="right"
                         />
                       </>
                     ) : (
-                      <Bar
-                        dataKey="prescriptions"
-                        fill="var(--color-prescriptions)"
-                        radius={4}
-                        animationDuration={800}
-                        animationEasing="ease-out"
-                      />
+                      <>
+                        <Bar
+                          dataKey="prescriptions"
+                          fill="var(--color-prescriptions)"
+                          radius={4}
+                          animationDuration={800}
+                          animationEasing="ease-out"
+                          yAxisId="left"
+                        />
+                        <Bar
+                          dataKey="revenue"
+                          fill="var(--color-revenue)"
+                          radius={4}
+                          animationDuration={800}
+                          animationEasing="ease-out"
+                          yAxisId="right"
+                        />
+                      </>
                     )}
                   </BarChart>
                 ) : (
                   <LineChart
                     accessibilityLayer
                     data={isComparing ? comparisonChartData : chartData}
-                    margin={{ top: 20, right: 20, bottom: 0, left: 0 }}
+                    margin={{ top: 20, right: 30, bottom: 0, left: 0 }}
                   >
                     <CartesianGrid vertical={false} />
                     <XAxis
@@ -522,50 +603,109 @@ export function WeeklyOverviewCard({
                       axisLine={false}
                     />
                     <YAxis
+                      yAxisId="left"
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
                       tickFormatter={value => value.toString()}
+                      domain={[0, 'auto']}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={10}
+                      tickFormatter={value => `$${(value / 1000).toFixed(1)}k`}
+                      domain={[0, 'auto']}
                     />
                     <ChartTooltip
                       cursor={true}
-                      content={<ChartTooltipContent indicator="dot" />}
+                      content={
+                        <ChartTooltipContent
+                          indicator="dot"
+                          formatter={(value, name) => {
+                            if (
+                              typeof name === 'string' &&
+                              name.includes('Revenue')
+                            ) {
+                              return [`$${value.toLocaleString()}`, name];
+                            }
+                            return [value, name];
+                          }}
+                        />
+                      }
                     />
                     <ChartLegend content={<ChartLegendContent />} />
                     {isComparing ? (
                       <>
                         <Line
-                          type="monotone"
+                          type="natural"
                           dataKey="previousPrescriptions"
                           stroke="var(--color-previous-prescriptions)"
                           strokeWidth={2}
                           dot={{
-                            r: 4,
+                            r: 3,
                             fill: 'var(--color-previous-prescriptions)',
                           }}
-                          activeDot={{ r: 6 }}
+                          activeDot={{ r: 5 }}
+                          yAxisId="left"
                         />
                         <Line
-                          type="monotone"
+                          type="natural"
                           dataKey="currentPrescriptions"
                           stroke="var(--color-current-prescriptions)"
                           strokeWidth={2}
                           dot={{
-                            r: 4,
+                            r: 3,
                             fill: 'var(--color-current-prescriptions)',
                           }}
-                          activeDot={{ r: 6 }}
+                          activeDot={{ r: 5 }}
+                          yAxisId="left"
+                        />
+                        <Line
+                          type="natural"
+                          dataKey="previousRevenue"
+                          stroke="var(--color-previous-revenue)"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: 'var(--color-previous-revenue)' }}
+                          activeDot={{ r: 5 }}
+                          yAxisId="right"
+                          strokeDasharray="5 5"
+                        />
+                        <Line
+                          type="natural"
+                          dataKey="currentRevenue"
+                          stroke="var(--color-current-revenue)"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: 'var(--color-current-revenue)' }}
+                          activeDot={{ r: 5 }}
+                          yAxisId="right"
+                          strokeDasharray="5 5"
                         />
                       </>
                     ) : (
-                      <Line
-                        type="monotone"
-                        dataKey="prescriptions"
-                        stroke="var(--color-prescriptions)"
-                        strokeWidth={2}
-                        dot={{ r: 4, fill: 'var(--color-prescriptions)' }}
-                        activeDot={{ r: 6 }}
-                      />
+                      <>
+                        <Line
+                          type="natural"
+                          dataKey="prescriptions"
+                          stroke="var(--color-prescriptions)"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: 'var(--color-prescriptions)' }}
+                          activeDot={{ r: 5 }}
+                          yAxisId="left"
+                        />
+                        <Line
+                          type="natural"
+                          dataKey="revenue"
+                          stroke="var(--color-revenue)"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: 'var(--color-revenue)' }}
+                          activeDot={{ r: 5 }}
+                          yAxisId="right"
+                          strokeDasharray="5 5"
+                        />
+                      </>
                     )}
                   </LineChart>
                 )}
