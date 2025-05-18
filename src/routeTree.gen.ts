@@ -10,9 +10,9 @@
 
 // Import Routes
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as OnboardingImport } from './routes/onboarding'
-import { Route as IndexImport } from './routes/index'
+import { Route as rootRoute } from './routes/__root';
+import { Route as OnboardingImport } from './routes/onboarding';
+import { Route as IndexImport } from './routes/index';
 
 // Create/Update Routes
 
@@ -20,75 +20,75 @@ const OnboardingRoute = OnboardingImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => rootRoute,
-} as any)
+} as any);
 
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRoute,
-} as any)
+} as any);
 
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
+      id: '/';
+      path: '/';
+      fullPath: '/';
+      preLoaderRoute: typeof IndexImport;
+      parentRoute: typeof rootRoute;
+    };
     '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingImport
-      parentRoute: typeof rootRoute
-    }
+      id: '/onboarding';
+      path: '/onboarding';
+      fullPath: '/onboarding';
+      preLoaderRoute: typeof OnboardingImport;
+      parentRoute: typeof rootRoute;
+    };
   }
 }
 
 // Create and export the route tree
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/onboarding': typeof OnboardingRoute
+  '/': typeof IndexRoute;
+  '/onboarding': typeof OnboardingRoute;
 }
 
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/onboarding': typeof OnboardingRoute
+  '/': typeof IndexRoute;
+  '/onboarding': typeof OnboardingRoute;
 }
 
 export interface FileRoutesById {
-  __root__: typeof rootRoute
-  '/': typeof IndexRoute
-  '/onboarding': typeof OnboardingRoute
+  __root__: typeof rootRoute;
+  '/': typeof IndexRoute;
+  '/onboarding': typeof OnboardingRoute;
 }
 
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/onboarding'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/onboarding'
-  id: '__root__' | '/' | '/onboarding'
-  fileRoutesById: FileRoutesById
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: '/' | '/onboarding';
+  fileRoutesByTo: FileRoutesByTo;
+  to: '/' | '/onboarding';
+  id: '__root__' | '/' | '/onboarding';
+  fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  OnboardingRoute: typeof OnboardingRoute
+  IndexRoute: typeof IndexRoute;
+  OnboardingRoute: typeof OnboardingRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRoute: OnboardingRoute,
-}
+};
 
 export const routeTree = rootRoute
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();
 
 /* ROUTE_MANIFEST_START
 {

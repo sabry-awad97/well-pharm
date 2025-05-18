@@ -3,11 +3,11 @@ import {
 	createRootRouteWithContext,
 	redirect,
 } from "@tanstack/react-router";
-import { invoke } from "@tauri-apps/api/core";
 
 import TanStackQueryLayout from "@/integrations/tanstack-query/layout.tsx";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
+import { checkOnboardingStatus } from "@/api/onboarding";
 import type { QueryClient } from "@tanstack/react-query";
 
 interface MyRouterContext {
@@ -16,14 +16,23 @@ interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	component: RootComponent,
-	beforeLoad: async ({ location }) => {
+	beforeLoad: async ({ location, context }) => {
 		// Skip onboarding check if already on the onboarding page
 		if (location.pathname === "/onboarding") {
 			return;
 		}
 
 		try {
-			const isOnboarded = await invoke("check_onboarding_status");
+			// Use the queryClient to prefetch the onboarding status
+			// This ensures we have the data in the cache for components that need it
+			const queryClient = context.queryClient;
+
+			// We still need to use the direct function here since hooks can't be used in beforeLoad
+			const isOnboarded = await checkOnboardingStatus();
+
+			// Store the result in the query cache for components to use
+			queryClient.setQueryData(["onboarding", "status"], isOnboarded);
+
 			if (!isOnboarded) {
 				throw redirect({
 					to: "/onboarding",
