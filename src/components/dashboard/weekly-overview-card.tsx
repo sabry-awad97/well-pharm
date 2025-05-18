@@ -456,6 +456,13 @@ export function WeeklyOverviewCard({
               transition={{ duration: 0.3 }}
               className="h-[240px] px-2"
             >
+              {process.env.NODE_ENV !== 'production' && (
+                <ChartDebugger
+                  data={isComparing ? comparisonChartData : chartData}
+                  chartType={chartType}
+                  isComparing={isComparing}
+                />
+              )}
               <ChartContainer
                 config={chartConfig}
                 className="h-full w-full"
@@ -470,7 +477,7 @@ export function WeeklyOverviewCard({
                   >
                     <CartesianGrid
                       vertical={false}
-                      stroke="var(--color-chart-grid)"
+                      stroke="var(--color-chart-grid, hsl(var(--border) / 0.5))"
                       strokeDasharray="3 3"
                     />
                     <XAxis
@@ -481,7 +488,7 @@ export function WeeklyOverviewCard({
                       className="text-xs font-medium"
                     />
                     <YAxis
-                      yAxisId="left"
+                      // Remove yAxisId="left" if you're not using multiple axes
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
@@ -490,37 +497,32 @@ export function WeeklyOverviewCard({
                       width={30}
                       domain={[0, 'auto']}
                     />
-                    {/* Secondary Y-axis for revenue */}
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={10}
-                      tickFormatter={value => `$${(value / 1000).toFixed(1)}k`}
-                      className="text-xs"
-                      width={50}
-                      domain={[0, 'auto']}
-                    />
+                    {/* Only add this secondary YAxis if you're actually using it */}
+                    {isComparing && (
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={10}
+                        tickFormatter={value =>
+                          `$${(value / 1000).toFixed(1)}k`
+                        }
+                        className="text-xs"
+                        width={50}
+                        domain={[0, 'auto']}
+                      />
+                    )}
                     <ChartTooltip
                       cursor={{
-                        fill: 'var(--color-chart-grid)',
+                        fill: 'var(--color-chart-grid, hsl(var(--border) / 0.5))',
                         opacity: 0.1,
                         radius: 4,
                       }}
                       content={
                         <ChartTooltipContent
                           indicator="dashed"
-                          className="border-color-chart-tooltip-border bg-color-chart-tooltip-bg shadow-md backdrop-blur-sm"
-                          formatter={(value, name) => {
-                            if (
-                              typeof name === 'string' &&
-                              name.includes('Revenue')
-                            ) {
-                              return [`$${value.toLocaleString()}`, name];
-                            }
-                            return [value, name];
-                          }}
+                          className="border-border/50 bg-background shadow-md backdrop-blur-sm"
                         />
                       }
                     />
@@ -535,58 +537,31 @@ export function WeeklyOverviewCard({
                       <>
                         <Bar
                           dataKey="previousPrescriptions"
-                          fill="var(--color-previous-prescriptions)"
+                          fill="hsl(var(--chart-2))" // Direct HSL value as fallback
                           radius={[4, 4, 0, 0]}
                           animationDuration={800}
                           animationEasing="ease-out"
                           className="opacity-80"
-                          yAxisId="left"
+                          // Remove yAxisId if not using multiple axes
                         />
                         <Bar
                           dataKey="currentPrescriptions"
-                          fill="var(--color-current-prescriptions)"
+                          fill="hsl(var(--chart-1))" // Direct HSL value as fallback
                           radius={[4, 4, 0, 0]}
                           animationDuration={800}
                           animationEasing="ease-out"
-                          yAxisId="left"
-                        />
-                        <Bar
-                          dataKey="previousRevenue"
-                          fill="var(--color-previous-revenue)"
-                          radius={[4, 4, 0, 0]}
-                          animationDuration={800}
-                          animationEasing="ease-out"
-                          className="opacity-80"
-                          yAxisId="right"
-                        />
-                        <Bar
-                          dataKey="currentRevenue"
-                          fill="var(--color-current-revenue)"
-                          radius={[4, 4, 0, 0]}
-                          animationDuration={800}
-                          animationEasing="ease-out"
-                          yAxisId="right"
+                          // Remove yAxisId if not using multiple axes
                         />
                       </>
                     ) : (
-                      <>
-                        <Bar
-                          dataKey="prescriptions"
-                          fill="var(--color-prescriptions)"
-                          radius={4}
-                          animationDuration={800}
-                          animationEasing="ease-out"
-                          yAxisId="left"
-                        />
-                        <Bar
-                          dataKey="revenue"
-                          fill="var(--color-revenue)"
-                          radius={4}
-                          animationDuration={800}
-                          animationEasing="ease-out"
-                          yAxisId="right"
-                        />
-                      </>
+                      <Bar
+                        dataKey="prescriptions"
+                        fill="hsl(var(--chart-1))" // Direct HSL value as fallback
+                        radius={4}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                        // Remove yAxisId if not using multiple axes
+                      />
                     )}
                   </BarChart>
                 ) : (
@@ -791,3 +766,94 @@ export function WeeklyOverviewCard({
     </DashboardCard>
   );
 }
+
+// Add this debugging component to help identify issues
+const ChartDebugger = ({
+  data,
+  chartType,
+  isComparing,
+}: {
+  data: unknown[];
+  chartType: 'bar' | 'line';
+  isComparing: boolean;
+}) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="mb-2 rounded border border-yellow-300 bg-yellow-50 p-2 text-xs">
+        No data available for chart rendering
+      </div>
+    );
+  }
+
+  // Check for required properties based on chart type and mode
+  const requiredProps = isComparing
+    ? ['currentPrescriptions', 'previousPrescriptions']
+    : ['prescriptions'];
+
+  if (chartType === 'line' && isComparing) {
+    requiredProps.push('currentRevenue', 'previousRevenue');
+  } else if (chartType === 'line') {
+    requiredProps.push('revenue');
+  }
+
+  const missingProps = requiredProps.filter(
+    prop =>
+      !data.some(
+        item => item !== null && typeof item === 'object' && prop in item,
+      ),
+  );
+
+  const hasAllRequiredProps = missingProps.length === 0;
+  const hasZeroValues = data.every(item =>
+    requiredProps.every(
+      prop =>
+        item !== null &&
+        typeof item === 'object' &&
+        prop in item &&
+        ((item as Record<string, unknown>)[prop] === 0 ||
+          (item as Record<string, unknown>)[prop] === null ||
+          (item as Record<string, unknown>)[prop] === undefined),
+    ),
+  );
+
+  return (
+    <details className="mb-2 rounded border p-2 text-xs">
+      <summary className="cursor-pointer font-medium">
+        Chart Debug Info {!hasAllRequiredProps && '⚠️'}
+        {hasZeroValues && ' (Zero Values)'}
+      </summary>
+      <div className="mt-2 space-y-2">
+        <div>
+          <strong>Chart Type:</strong> {chartType},
+          <strong>Comparison Mode:</strong> {isComparing ? 'Yes' : 'No'}
+        </div>
+
+        {!hasAllRequiredProps && (
+          <div className="rounded border border-red-300 bg-red-50 p-2">
+            <strong>Missing properties:</strong> {missingProps.join(', ')}
+          </div>
+        )}
+
+        {hasZeroValues && (
+          <div className="rounded border border-yellow-300 bg-yellow-50 p-2">
+            <strong>Warning:</strong> All data values are zero or null
+          </div>
+        )}
+
+        <div>
+          <strong>Data Sample:</strong>
+          <pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-100 p-2">
+            {JSON.stringify(data[0], null, 2)}
+          </pre>
+        </div>
+
+        <div>
+          <strong>Full Dataset:</strong>
+          <pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-100 p-2">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      </div>
+    </details>
+  );
+};
