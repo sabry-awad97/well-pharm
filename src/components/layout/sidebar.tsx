@@ -123,6 +123,8 @@ export function Sidebar({ className }: SidebarProps) {
   const handleLogout = async () => {
     try {
       await invoke('logout');
+      // Clear the previous path when logging out
+      sessionStorage.removeItem('previousPath');
       navigate({ to: '/login' });
     } catch (error) {
       console.error('Logout failed:', error);
@@ -370,3 +372,4 @@ export function Sidebar({ className }: SidebarProps) {
     </>
   );
 }
+
