@@ -13,10 +13,10 @@ import {
 import { MainLayout } from '../layout/main-layout';
 import { AlertsCard } from './alerts-card';
 import { InventoryStatusCard } from './inventory-status-card';
+import { OverviewCard } from './overview-card';
 import { RecentPatientsCard } from './recent-patients-card';
 import { RecentPrescriptionsCard } from './recent-prescriptions-card';
 import { StatCard } from './stat-card';
-import { WeeklyOverviewCard } from './weekly-overview-card';
 
 // Create a component-specific logger
 const log = createComponentLogger('Dashboard');
@@ -141,10 +141,7 @@ export function Dashboard() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <WeeklyOverviewCard
-            onRefresh={handleRefresh}
-            isFetching={isFetching}
-          />
+          <OverviewCard onRefresh={handleRefresh} isFetching={isFetching} />
           <InventoryStatusCard lowStockItems={lowStockItems} />
         </div>
 
