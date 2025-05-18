@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use db_entity::utils::db_id::DbId;
 use db_service::ServiceManager;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -98,4 +101,38 @@ pub async fn logout(
         .logout(&token, jwt_manager, token_store)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Get the current user information from a valid token
+#[tauri::command]
+pub async fn get_current_user(
+    token: String,
+    service_manager: State<'_, ServiceManager>,
+) -> Result<UserResponse, String> {
+    let jwt_manager = service_manager.jwt_manager();
+    let user_repo = service_manager.user_repository();
+
+    // Validate the token
+    let claims = jwt_manager
+        .validate_token(&token)
+        .map_err(|e| e.to_string())?;
+
+    // Parse user ID from claims
+    let user_id =
+        DbId::from_str(&claims.sub).map_err(|_| "Invalid user ID in token".to_string())?;
+
+    // Get the user from the repository
+    let user = user_repo
+        .find_by_id(user_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "User not found".to_string())?;
+
+    // Return user information
+    Ok(UserResponse {
+        id: user.id.to_string(),
+        username: user.username,
+        email: user.email,
+        role: user.role.to_string(),
+    })
 }

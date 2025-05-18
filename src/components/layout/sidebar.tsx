@@ -1,4 +1,4 @@
-import { useLogout } from '@/api/auth';
+import { useCurrentUser, useLogout } from '@/api/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -118,6 +118,38 @@ export function Sidebar({ className }: SidebarProps) {
 
   // Use the logout mutation from our auth API
   const logoutMutation = useLogout();
+
+  // Fetch current user data
+  const {
+    data: currentUser,
+    isLoading: isLoadingUser,
+    error: userError,
+  } = useCurrentUser();
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    if (!currentUser || !currentUser.username) return 'WP';
+
+    // If we have a full name with spaces, get initials from first and last name
+    if (currentUser.username.includes(' ')) {
+      const nameParts = currentUser.username.split(' ');
+      return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
+    }
+
+    // Otherwise, use the first two letters of the username
+    return currentUser.username.substring(0, 2).toUpperCase();
+  };
+
+  // Get formatted role for display
+  const getFormattedRole = () => {
+    if (!currentUser || !currentUser.role) return 'User';
+
+    // Capitalize first letter of role
+    return (
+      currentUser.role.charAt(0).toUpperCase() +
+      currentUser.role.slice(1).toLowerCase()
+    );
+  };
 
   const currentRoute =
     matches.length > 0 ? matches[matches.length - 1].pathname : '/';
@@ -354,16 +386,42 @@ export function Sidebar({ className }: SidebarProps) {
                   className="flex items-center gap-2"
                 >
                   <Avatar className="border-primary/10 h-8 w-8 border">
-                    <AvatarImage src="/avatar.png" alt="User" />
-                    <AvatarFallback className="bg-primary/5 text-primary">
-                      WP
-                    </AvatarFallback>
+                    {isLoadingUser ? (
+                      <AvatarFallback className="bg-primary/5 text-primary">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </AvatarFallback>
+                    ) : (
+                      <>
+                        <AvatarImage
+                          src={`https://api.adorable.io/avatars/285/${currentUser?.username}`}
+                          alt={currentUser?.username || 'User'}
+                        />
+                        <AvatarFallback className="bg-primary/5 text-primary">
+                          {getUserInitials()}
+                        </AvatarFallback>
+                      </>
+                    )}
                   </Avatar>
                   <div className="text-sm">
-                    <p className="leading-none font-medium">Admin User</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Administrator
-                    </p>
+                    {isLoadingUser ? (
+                      <div className="space-y-1">
+                        <div className="bg-muted h-3 w-20 animate-pulse rounded" />
+                        <div className="bg-muted h-2 w-16 animate-pulse rounded" />
+                      </div>
+                    ) : userError ? (
+                      <p className="text-destructive/80 leading-none font-medium">
+                        Error
+                      </p>
+                    ) : (
+                      <>
+                        <p className="leading-none font-medium">
+                          {currentUser?.username || 'Unknown User'}
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {getFormattedRole()}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </motion.div>
               )}

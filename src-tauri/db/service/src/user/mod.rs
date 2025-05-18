@@ -5,12 +5,12 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 use async_trait::async_trait;
-use db_entity::{User, UserActiveModel, UserRole, utils::db_time::DbTime};
+use db_entity::{utils::{db_id::DbId, db_time::DbTime}, User, UserActiveModel, UserRole};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
     TransactionTrait,
 };
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 use tracing::{info, warn};
 
 use crate::ServiceError;
@@ -30,7 +30,7 @@ pub trait UserRepository: Send + Sync + 'static {
     ) -> Result<UserModel, ServiceError>;
 
     /// Finds a user by their unique ID.
-    async fn find_by_id(&self, id: uuid::Uuid) -> Result<Option<UserModel>, ServiceError>;
+    async fn find_by_id(&self, id: DbId) -> Result<Option<UserModel>, ServiceError>;
 
     /// Finds a user by their username.
     async fn find_by_username(&self, username: &str) -> Result<Option<UserModel>, ServiceError>;
@@ -42,7 +42,7 @@ pub trait UserRepository: Send + Sync + 'static {
     async fn update_user(&self, user: UserActiveModel) -> Result<UserModel, ServiceError>;
 
     /// Deletes a user from the system.
-    async fn delete_user(&self, id: uuid::Uuid) -> Result<bool, ServiceError>;
+    async fn delete_user(&self, id: DbId) -> Result<bool, ServiceError>;
 
     /// Authenticates a user with username/email and password.
     async fn authenticate(
@@ -52,7 +52,7 @@ pub trait UserRepository: Send + Sync + 'static {
     ) -> Result<Option<UserModel>, ServiceError>;
 
     /// Updates the last login timestamp for a user.
-    async fn update_last_login(&self, id: uuid::Uuid) -> Result<(), ServiceError>;
+    async fn update_last_login(&self, id: DbId) -> Result<(), ServiceError>;
 
     /// Lists all users with optional role filtering.
     async fn list_users(&self, role: Option<UserRole>) -> Result<Vec<UserModel>, ServiceError>;
@@ -168,7 +168,7 @@ impl UserRepository for SeaOrmUserRepository {
         Ok(user)
     }
 
-    async fn find_by_id(&self, id: uuid::Uuid) -> Result<Option<UserModel>, ServiceError> {
+    async fn find_by_id(&self, id: DbId) -> Result<Option<UserModel>, ServiceError> {
         let user = User::find_by_id(id).one(&*self.db).await?;
         Ok(user)
     }
@@ -194,7 +194,7 @@ impl UserRepository for SeaOrmUserRepository {
         Ok(user)
     }
 
-    async fn delete_user(&self, id: uuid::Uuid) -> Result<bool, ServiceError> {
+    async fn delete_user(&self, id: DbId) -> Result<bool, ServiceError> {
         let result = User::delete_by_id(id).exec(&*self.db).await?;
         Ok(result.rows_affected > 0)
     }
@@ -219,7 +219,7 @@ impl UserRepository for SeaOrmUserRepository {
                 // Verify password
                 if self.verify_password(password, &user.password_hash)? {
                     // Update last login time
-                    self.update_last_login(user.id).await?;
+                    self.update_last_login(user.id.into()).await?;
                     Ok(Some(user))
                 } else {
                     warn!("Failed login attempt for user: {}", username_or_email);
@@ -230,7 +230,7 @@ impl UserRepository for SeaOrmUserRepository {
         }
     }
 
-    async fn update_last_login(&self, id: uuid::Uuid) -> Result<(), ServiceError> {
+    async fn update_last_login(&self, id: DbId) -> Result<(), ServiceError> {
         let txn = self.db.begin().await?;
 
         let user = User::find_by_id(id).one(&txn).await?;
@@ -292,7 +292,7 @@ impl UserRepository for SeaOrmUserRepository {
         }
 
         // Parse user ID from claims
-        let user_id = uuid::Uuid::parse_str(&claims.sub).map_err(|_| {
+        let user_id = DbId::from_str(&claims.sub).map_err(|_| {
             ServiceError::AuthenticationError("Invalid user ID in token".to_string())
         })?;
 
@@ -330,7 +330,6 @@ mod tests {
     use db_entity::utils::db_time::DbTime;
     use pretty_assertions::assert_eq;
     use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
-    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_create_user() {
@@ -348,7 +347,7 @@ mod tests {
             }])
             // Third query: get the created user by ID
             .append_query_results(vec![vec![UserModel {
-                id: Uuid::parse_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f").unwrap(),
+                id: DbId::from_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f").unwrap().into(),
                 username: "testuser".to_string(),
                 email: "test@example.com".to_string(),
                 password_hash: "hashed_password".to_string(), // This will be different in actual implementation
@@ -397,14 +396,13 @@ mod auth_tests {
     use db_entity::utils::db_time::DbTime;
     use pretty_assertions::assert_eq;
     use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
-    use uuid::Uuid;
 
     const TEST_SECRET: &[u8] = b"test_secret_for_auth_tests";
     const TEST_USER_ID: &str = "01890289-8b6e-7cc3-98c4-dc0c0c07398f";
 
     async fn setup_test_env() -> (SeaOrmUserRepository, JwtManager, TokenStore, UserModel) {
         // Create a mock user
-        let user_id = Uuid::parse_str(TEST_USER_ID).unwrap();
+        let user_id = DbId::from_str(TEST_USER_ID).unwrap().into();
         let db_time = DbTime::now().into();
         let test_user = UserModel {
             id: user_id,
@@ -513,7 +511,7 @@ mod auth_tests {
         let (repo, jwt_manager, token_store, _test_user) = setup_test_env().await;
 
         // Generate a token to logout
-        let user_id = Uuid::parse_str(TEST_USER_ID).unwrap();
+        let user_id = DbId::from_str(TEST_USER_ID).unwrap().into();
         let token = jwt_manager
             .generate_token(user_id, UserRole::Admin)
             .unwrap();
