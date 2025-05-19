@@ -3,7 +3,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'; // Added Popover
+} from '@/components/ui/popover';
 import { Check, Copy } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -26,12 +26,12 @@ const ChartDebugger = ({
   // Check for required properties based on chart type and mode
   const requiredProps = isComparing
     ? ['currentPrescriptions', 'previousPrescriptions']
-    : ['prescriptions'];
+    : ['currentPrescriptions'];
 
   if (chartType === 'line' && isComparing) {
     requiredProps.push('currentRevenue', 'previousRevenue');
   } else if (chartType === 'line') {
-    requiredProps.push('revenue');
+    requiredProps.push('currentRevenue');
   }
 
   const missingProps = requiredProps.filter(

@@ -35,7 +35,6 @@ export function OverviewCard({
     isFetching,
     isError,
     error,
-    isPlaceholderData,
     refetch,
   } = useCompareWeeklyOverviewData(currentStartDate, {
     staleTime: 60 * 1000, // 1 minute
@@ -61,10 +60,10 @@ export function OverviewCard({
   const comparisonChartData = React.useMemo(() => {
     return chartData.map((item, index) => ({
       day: item.day,
-      currentPrescriptions: item.prescriptions,
-      previousPrescriptions: previousWeekData[index]?.prescriptions || 0,
-      currentRevenue: item.revenue,
-      previousRevenue: previousWeekData[index]?.revenue || 0,
+      currentPrescriptions: item.currentPrescriptions,
+      previousPrescriptions: previousWeekData[index]?.previousPrescriptions || 0,
+      currentRevenue: item.currentRevenue,
+      previousRevenue: previousWeekData[index]?.previousRevenue || 0,
     }));
   }, [chartData, previousWeekData]);
 
@@ -97,11 +96,11 @@ export function OverviewCard({
 
   // Calculations for summary
   const totalCurrentWeekPrescriptions = React.useMemo(
-    () => chartData.reduce((sum, item) => sum + item.prescriptions, 0),
+    () => chartData.reduce((sum, item) => sum + item.currentPrescriptions, 0),
     [chartData],
   );
   const totalPreviousWeekPrescriptions = React.useMemo(
-    () => previousWeekData.reduce((sum, item) => sum + item.prescriptions, 0),
+    () => previousWeekData.reduce((sum, item) => sum + item.previousPrescriptions, 0),
     [previousWeekData],
   );
 
@@ -128,7 +127,7 @@ export function OverviewCard({
     if (chartData.length === 0) return 'N/A';
     return chartData.reduce(
       (busiest, current) =>
-        current.prescriptions > busiest.prescriptions ? current : busiest,
+        current.currentPrescriptions > busiest.currentPrescriptions ? current : busiest,
       chartData[0],
     ).day;
   }, [chartData]);
@@ -192,7 +191,6 @@ export function OverviewCard({
             handleDateChange={handleDateChange}
             handleExport={handleExport}
             isLoading={cardIsLoading}
-            isPlaceholderData={isPlaceholderData}
           />
 
           <ChartVisualization
