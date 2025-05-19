@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import { useDeleteProduct } from '@/api/product';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,9 +9,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Eye, Edit, Trash2, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
+import { Edit, Eye, Loader2, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface ProductActionsProps {
   productId: string;
@@ -96,7 +97,7 @@ export function ProductActions({
                 handleDelete();
               }}
               disabled={isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={cn(buttonVariants({ variant: 'destructive' }))}
             >
               {isPending ? (
                 <>
