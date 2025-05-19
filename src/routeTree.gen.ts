@@ -14,6 +14,10 @@ import { Route as rootRoute } from './routes/__root';
 import { Route as OnboardingImport } from './routes/onboarding';
 import { Route as LoginImport } from './routes/login';
 import { Route as IndexImport } from './routes/index';
+import { Route as ProductsIndexImport } from './routes/products/index';
+import { Route as ProductsNewImport } from './routes/products/new';
+import { Route as ProductsProductIdImport } from './routes/products/$productId';
+import { Route as ProductsProductIdEditImport } from './routes/products/$productId/edit';
 
 // Create/Update Routes
 
@@ -33,6 +37,30 @@ const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRoute,
+} as any);
+
+const ProductsIndexRoute = ProductsIndexImport.update({
+  id: '/products/',
+  path: '/products/',
+  getParentRoute: () => rootRoute,
+} as any);
+
+const ProductsNewRoute = ProductsNewImport.update({
+  id: '/products/new',
+  path: '/products/new',
+  getParentRoute: () => rootRoute,
+} as any);
+
+const ProductsProductIdRoute = ProductsProductIdImport.update({
+  id: '/products/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => rootRoute,
+} as any);
+
+const ProductsProductIdEditRoute = ProductsProductIdEditImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => ProductsProductIdRoute,
 } as any);
 
 // Populate the FileRoutesByPath interface
@@ -60,21 +88,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingImport;
       parentRoute: typeof rootRoute;
     };
+    '/products/$productId': {
+      id: '/products/$productId';
+      path: '/products/$productId';
+      fullPath: '/products/$productId';
+      preLoaderRoute: typeof ProductsProductIdImport;
+      parentRoute: typeof rootRoute;
+    };
+    '/products/new': {
+      id: '/products/new';
+      path: '/products/new';
+      fullPath: '/products/new';
+      preLoaderRoute: typeof ProductsNewImport;
+      parentRoute: typeof rootRoute;
+    };
+    '/products/': {
+      id: '/products/';
+      path: '/products';
+      fullPath: '/products';
+      preLoaderRoute: typeof ProductsIndexImport;
+      parentRoute: typeof rootRoute;
+    };
+    '/products/$productId/edit': {
+      id: '/products/$productId/edit';
+      path: '/edit';
+      fullPath: '/products/$productId/edit';
+      preLoaderRoute: typeof ProductsProductIdEditImport;
+      parentRoute: typeof ProductsProductIdImport;
+    };
   }
 }
 
 // Create and export the route tree
 
+interface ProductsProductIdRouteChildren {
+  ProductsProductIdEditRoute: typeof ProductsProductIdEditRoute;
+}
+
+const ProductsProductIdRouteChildren: ProductsProductIdRouteChildren = {
+  ProductsProductIdEditRoute: ProductsProductIdEditRoute,
+};
+
+const ProductsProductIdRouteWithChildren =
+  ProductsProductIdRoute._addFileChildren(ProductsProductIdRouteChildren);
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
   '/login': typeof LoginRoute;
   '/onboarding': typeof OnboardingRoute;
+  '/products/$productId': typeof ProductsProductIdRouteWithChildren;
+  '/products/new': typeof ProductsNewRoute;
+  '/products': typeof ProductsIndexRoute;
+  '/products/$productId/edit': typeof ProductsProductIdEditRoute;
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
   '/login': typeof LoginRoute;
   '/onboarding': typeof OnboardingRoute;
+  '/products/$productId': typeof ProductsProductIdRouteWithChildren;
+  '/products/new': typeof ProductsNewRoute;
+  '/products': typeof ProductsIndexRoute;
+  '/products/$productId/edit': typeof ProductsProductIdEditRoute;
 }
 
 export interface FileRoutesById {
@@ -82,14 +157,40 @@ export interface FileRoutesById {
   '/': typeof IndexRoute;
   '/login': typeof LoginRoute;
   '/onboarding': typeof OnboardingRoute;
+  '/products/$productId': typeof ProductsProductIdRouteWithChildren;
+  '/products/new': typeof ProductsNewRoute;
+  '/products/': typeof ProductsIndexRoute;
+  '/products/$productId/edit': typeof ProductsProductIdEditRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/login' | '/onboarding';
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products'
+    | '/products/$productId/edit';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/login' | '/onboarding';
-  id: '__root__' | '/' | '/login' | '/onboarding';
+  to:
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products'
+    | '/products/$productId/edit';
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products/'
+    | '/products/$productId/edit';
   fileRoutesById: FileRoutesById;
 }
 
@@ -97,12 +198,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   LoginRoute: typeof LoginRoute;
   OnboardingRoute: typeof OnboardingRoute;
+  ProductsProductIdRoute: typeof ProductsProductIdRouteWithChildren;
+  ProductsNewRoute: typeof ProductsNewRoute;
+  ProductsIndexRoute: typeof ProductsIndexRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  ProductsProductIdRoute: ProductsProductIdRouteWithChildren,
+  ProductsNewRoute: ProductsNewRoute,
+  ProductsIndexRoute: ProductsIndexRoute,
 };
 
 export const routeTree = rootRoute
@@ -117,7 +224,10 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/login",
-        "/onboarding"
+        "/onboarding",
+        "/products/$productId",
+        "/products/new",
+        "/products/"
       ]
     },
     "/": {
@@ -128,6 +238,22 @@ export const routeTree = rootRoute
     },
     "/onboarding": {
       "filePath": "onboarding.tsx"
+    },
+    "/products/$productId": {
+      "filePath": "products/$productId.tsx",
+      "children": [
+        "/products/$productId/edit"
+      ]
+    },
+    "/products/new": {
+      "filePath": "products/new.tsx"
+    },
+    "/products/": {
+      "filePath": "products/index.tsx"
+    },
+    "/products/$productId/edit": {
+      "filePath": "products/$productId/edit.tsx",
+      "parent": "/products/$productId"
     }
   }
 }

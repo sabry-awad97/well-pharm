@@ -14,23 +14,19 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  BarChart3,
   ChevronLeft,
   ChevronRight,
-  LayoutDashboard,
   Loader2,
   LogOut,
   Menu,
-  Package,
   Pill,
-  Settings,
-  Users,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { navItems } from './nav-items';
 
 interface NavItemProps {
-  icon: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   to: string;
   isActive: boolean;
@@ -39,7 +35,7 @@ interface NavItemProps {
 }
 
 const NavItem = ({
-  icon,
+  icon: Icon,
   label,
   to,
   isActive,
@@ -76,7 +72,7 @@ const NavItem = ({
                 !isActive && 'group-hover:scale-110',
               )}
             >
-              {icon}
+              <Icon className="h-4 w-4" />
             </div>
             {!isCollapsed && <span className="truncate">{label}</span>}
           </Link>
@@ -252,39 +248,6 @@ export function Sidebar({ className }: SidebarProps) {
       localStorage.setItem('sidebarCollapsed', String(isCollapsed));
     }
   }, [isCollapsed, isDesktop]);
-
-  const navItems = [
-    {
-      icon: <LayoutDashboard className="h-5 w-5" />,
-      label: 'Dashboard',
-      to: '/',
-    },
-    {
-      icon: <Package className="h-5 w-5" />,
-      label: 'Inventory',
-      to: '/inventory',
-    },
-    {
-      icon: <Users className="h-5 w-5" />,
-      label: 'Patients',
-      to: '/patients',
-    },
-    {
-      icon: <Pill className="h-5 w-5" />,
-      label: 'Prescriptions',
-      to: '/prescriptions',
-    },
-    {
-      icon: <BarChart3 className="h-5 w-5" />,
-      label: 'Reports',
-      to: '/reports',
-    },
-    {
-      icon: <Settings className="h-5 w-5" />,
-      label: 'Settings',
-      to: '/settings',
-    },
-  ];
 
   return (
     <>

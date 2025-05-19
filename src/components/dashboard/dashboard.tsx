@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { MainLayout } from '../layout/main-layout';
 import { AlertsCard } from './alerts-card';
 import { InventoryStatusCard } from './inventory-status-card';
 import { OverviewCard } from './overview-card';
@@ -76,81 +75,79 @@ export function Dashboard() {
   }
 
   return (
-    <MainLayout>
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome to WellPharm management system
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1">
-              <Calendar className="h-4 w-4" />
-              Today
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1"
-              onClick={handleRefresh}
-              disabled={isFetching}
-            >
-              {isFetching ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-b-transparent" />
-              ) : (
-                <Clock className="h-4 w-4" />
-              )}
-              {isFetching ? 'Refreshing...' : 'Refresh'}
-            </Button>
-          </div>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to WellPharm management system
+          </p>
         </div>
-
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Patients"
-            value={stats.patients.total.toString()}
-            description={`since last ${stats.patients.trendPeriod}`}
-            icon={<Users className="h-3.5 w-3.5" />}
-            trend="up"
-            trendValue={`+${stats.patients.trend}%`}
-          />
-          <StatCard
-            title="Inventory Items"
-            value={stats.inventory.total.toString()}
-            description="in stock"
-            icon={<Package className="h-3.5 w-3.5" />}
-          />
-          <StatCard
-            title="Prescriptions"
-            value={stats.prescriptions.total.toString()}
-            description={`this ${stats.prescriptions.trendPeriod}`}
-            icon={<Pill className="h-3.5 w-3.5" />}
-            trend="up"
-            trendValue={`+${stats.prescriptions.trend}%`}
-          />
-          <StatCard
-            title="Revenue"
-            value={`$${stats.revenue.total.toLocaleString()}`}
-            description={`this ${stats.revenue.trendPeriod}`}
-            icon={<TrendingUp className="h-3.5 w-3.5" />}
-            trend="up"
-            trendValue={`+${stats.revenue.trend}%`}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <OverviewCard onRefresh={handleRefresh} isFetching={isFetching} />
-          <InventoryStatusCard lowStockItems={lowStockItems} />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <RecentPatientsCard recentPatients={recentPatients} />
-          <RecentPrescriptionsCard recentPrescriptions={recentPrescriptions} />
-          <AlertsCard systemAlerts={systemAlerts} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1">
+            <Calendar className="h-4 w-4" />
+            Today
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-1"
+            onClick={handleRefresh}
+            disabled={isFetching}
+          >
+            {isFetching ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-b-transparent" />
+            ) : (
+              <Clock className="h-4 w-4" />
+            )}
+            {isFetching ? 'Refreshing...' : 'Refresh'}
+          </Button>
         </div>
       </div>
-    </MainLayout>
+
+      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total Patients"
+          value={stats.patients.total.toString()}
+          description={`since last ${stats.patients.trendPeriod}`}
+          icon={<Users className="h-3.5 w-3.5" />}
+          trend="up"
+          trendValue={`+${stats.patients.trend}%`}
+        />
+        <StatCard
+          title="Inventory Items"
+          value={stats.inventory.total.toString()}
+          description="in stock"
+          icon={<Package className="h-3.5 w-3.5" />}
+        />
+        <StatCard
+          title="Prescriptions"
+          value={stats.prescriptions.total.toString()}
+          description={`this ${stats.prescriptions.trendPeriod}`}
+          icon={<Pill className="h-3.5 w-3.5" />}
+          trend="up"
+          trendValue={`+${stats.prescriptions.trend}%`}
+        />
+        <StatCard
+          title="Revenue"
+          value={`$${stats.revenue.total.toLocaleString()}`}
+          description={`this ${stats.revenue.trendPeriod}`}
+          icon={<TrendingUp className="h-3.5 w-3.5" />}
+          trend="up"
+          trendValue={`+${stats.revenue.trend}%`}
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <OverviewCard onRefresh={handleRefresh} isFetching={isFetching} />
+        <InventoryStatusCard lowStockItems={lowStockItems} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <RecentPatientsCard recentPatients={recentPatients} />
+        <RecentPrescriptionsCard recentPrescriptions={recentPrescriptions} />
+        <AlertsCard systemAlerts={systemAlerts} />
+      </div>
+    </div>
   );
 }

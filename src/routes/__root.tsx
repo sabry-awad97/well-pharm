@@ -2,6 +2,7 @@ import {
   Outlet,
   createRootRouteWithContext,
   redirect,
+  useLocation,
 } from '@tanstack/react-router';
 
 import TanStackQueryLayout from '@/integrations/tanstack-query/layout.tsx';
@@ -9,6 +10,7 @@ import TanStackQueryLayout from '@/integrations/tanstack-query/layout.tsx';
 
 import { checkAuth } from '@/api/auth';
 import { checkOnboardingStatus } from '@/api/onboarding';
+import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/sonner';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -132,10 +134,18 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 });
 
 function RootComponent() {
+  const location = useLocation();
+  const pathname = location.pathname;
+  const isPublicRoute = publicRoutes.includes(pathname);
   return (
     <>
-      <Outlet />
-      {/* <TanStackRouterDevtools /> */}
+      {isPublicRoute ? (
+        <Outlet />
+      ) : (
+        <MainLayout>
+          <Outlet />
+        </MainLayout>
+      )}
       <TanStackQueryLayout />
       <Toaster richColors expand />
     </>
