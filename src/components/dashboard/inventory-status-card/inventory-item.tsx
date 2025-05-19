@@ -7,7 +7,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
-import { Sparklines, SparklinesLine } from '@/components/ui/sparklines';
+import {
+  Sparklines,
+  SparklinesLine,
+  SparklinesReferenceLine,
+  SparklinesSpots,
+} from '@/components/ui/sparklines';
 import {
   Tooltip,
   TooltipContent,
@@ -146,10 +151,42 @@ const StockHistoryChart = memo(function StockHistoryChart({
         ? '#f59e0b' // amber
         : '#10b981'; // emerald
 
+  // Format stock values for tooltips
+  const formatStockValue = (value: number) => `Stock level: ${value} units`;
+
   return (
-    <div className="mt-2 h-10 w-full">
-      <Sparklines data={stockHistory} height={36} margin={4}>
-        <SparklinesLine color={chartColor} />
+    <div
+      className="mt-2 h-10 w-full"
+      aria-label={`Stock history chart showing trend from ${stockHistory[0]} to ${stockHistory[stockHistory.length - 1]} units`}
+    >
+      <Sparklines
+        data={stockHistory}
+        height={36}
+        margin={4}
+        animate={true}
+        animationDuration={700}
+      >
+        <SparklinesLine
+          color={chartColor}
+          fill={chartColor}
+          fillOpacity={0.15}
+          gradient={true}
+          curve={true}
+          strokeWidth={1.8}
+        />
+        <SparklinesSpots
+          color={chartColor}
+          size={2.5}
+          spotPoints={['min', 'max', 'last']}
+          showTooltips={true}
+          tooltipFormatter={formatStockValue}
+        />
+        <SparklinesReferenceLine
+          type="mean"
+          color={chartColor}
+          strokeWidth={0.8}
+          strokeDasharray="2, 2"
+        />
       </Sparklines>
     </div>
   );
