@@ -23,9 +23,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Bug, Loader2, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import type { z } from 'zod';
@@ -89,6 +95,182 @@ export function ProductFormPage({ mode }: ProductFormPageProps) {
           }
         : undefined,
   });
+
+  // Sample data for debug mode with realistic pharmaceutical data
+  const populateWithSampleData = () => {
+    // Common medications with their typical dosage forms and strengths
+    const medications = [
+      {
+        name: 'Amoxicillin',
+        genericName: 'Amoxicillin',
+        dosageForms: ['Oral Capsule', 'Oral Suspension', 'Chewable Tablet'],
+        strengths: ['250mg', '500mg', '875mg', '125mg/5ml', '250mg/5ml'],
+        category: 'Prescription',
+      },
+      {
+        name: 'Lisinopril',
+        genericName: 'Lisinopril',
+        dosageForms: ['Oral Tablet'],
+        strengths: ['5mg', '10mg', '20mg', '40mg'],
+        category: 'Prescription',
+      },
+      {
+        name: 'Atorvastatin',
+        genericName: 'Atorvastatin Calcium',
+        dosageForms: ['Oral Tablet', 'Film-Coated Tablet'],
+        strengths: ['10mg', '20mg', '40mg', '80mg'],
+        category: 'Prescription',
+      },
+      {
+        name: 'Metformin',
+        genericName: 'Metformin Hydrochloride',
+        dosageForms: ['Oral Tablet', 'Extended-Release Tablet'],
+        strengths: ['500mg', '850mg', '1000mg'],
+        category: 'Prescription',
+      },
+      {
+        name: 'Ibuprofen',
+        genericName: 'Ibuprofen',
+        dosageForms: ['Oral Tablet', 'Oral Suspension', 'Soft Gel'],
+        strengths: ['200mg', '400mg', '600mg', '800mg', '100mg/5ml'],
+        category: 'OTC',
+      },
+      {
+        name: 'Acetaminophen',
+        genericName: 'Acetaminophen',
+        dosageForms: ['Oral Tablet', 'Oral Suspension', 'Chewable Tablet'],
+        strengths: ['325mg', '500mg', '650mg', '160mg/5ml'],
+        category: 'OTC',
+      },
+      {
+        name: 'Loratadine',
+        genericName: 'Loratadine',
+        dosageForms: ['Oral Tablet', 'Orally Disintegrating Tablet'],
+        strengths: ['10mg'],
+        category: 'OTC',
+      },
+      {
+        name: 'Vitamin D3',
+        genericName: 'Cholecalciferol',
+        dosageForms: ['Oral Capsule', 'Oral Tablet', 'Oral Drops'],
+        strengths: ['1000IU', '2000IU', '5000IU', '400IU/drop'],
+        category: 'Supplement',
+      },
+      {
+        name: 'Omeprazole',
+        genericName: 'Omeprazole',
+        dosageForms: ['Delayed-Release Capsule', 'Delayed-Release Tablet'],
+        strengths: ['10mg', '20mg', '40mg'],
+        category: 'OTC',
+      },
+      {
+        name: 'Fluticasone',
+        genericName: 'Fluticasone Propionate',
+        dosageForms: ['Nasal Spray', 'Inhalation Aerosol'],
+        strengths: ['50mcg/actuation', '100mcg/actuation', '200mcg/actuation'],
+        category: 'Prescription',
+      },
+      {
+        name: 'Blood Glucose Test Strips',
+        genericName: null,
+        dosageForms: ['Test Strip'],
+        strengths: ['50 strips/box', '100 strips/box'],
+        category: 'MedicalDevice',
+      },
+      {
+        name: 'Digital Thermometer',
+        genericName: null,
+        dosageForms: ['Device'],
+        strengths: ['1 unit'],
+        category: 'MedicalDevice',
+      },
+    ];
+
+    // Pharmaceutical manufacturers
+    const manufacturers = [
+      'Pfizer Inc.',
+      'Novartis Pharmaceuticals',
+      'Merck & Co.',
+      'GlaxoSmithKline',
+      'Teva Pharmaceuticals',
+      'Johnson & Johnson',
+      'AstraZeneca',
+      'Bristol-Myers Squibb',
+      'Eli Lilly and Company',
+      'Bayer AG',
+      'Sanofi',
+      'Roche Holding AG',
+    ];
+
+    // Generate realistic descriptions based on medication type
+    const generateDescription = (
+      medication: {
+        name: string;
+        genericName?: string | null;
+        category: string;
+      },
+      dosageForm: string,
+      strength: string,
+    ) => {
+      if (medication.category === 'MedicalDevice') {
+        return `${medication.name} for home use. Designed for accurate and reliable measurements. Easy to use and maintain. Store in a cool, dry place.`;
+      }
+
+      const usageDescriptions = [
+        `${medication.name} ${strength} ${dosageForm} is used to treat various conditions. Follow your healthcare provider's instructions for dosage and duration of treatment.`,
+        `Each ${dosageForm.toLowerCase()} contains ${strength} of ${medication.genericName || medication.name}. Store at room temperature away from moisture and heat.`,
+        `${medication.name} (${medication.genericName || ''}) ${strength} is indicated for the treatment of specific conditions as prescribed by your healthcare provider. Read all medication guides and follow all directions on your prescription label.`,
+        `This ${dosageForm.toLowerCase()} contains ${strength} of active ingredient. Take as directed by your healthcare provider. Do not exceed the recommended dose.`,
+      ];
+
+      return usageDescriptions[
+        Math.floor(Math.random() * usageDescriptions.length)
+      ];
+    };
+
+    // Generate realistic barcode (GS1 or NDC format)
+    const generateBarcode = () => {
+      // National Drug Code (NDC) format: XXXXX-XXXX-XX or XXXX-XXXX-XX
+      const labelerCode = Math.floor(Math.random() * 90000) + 10000;
+      const productCode = Math.floor(Math.random() * 9000) + 1000;
+      const packageCode = Math.floor(Math.random() * 90) + 10;
+
+      return `${labelerCode}-${productCode}-${packageCode}`;
+    };
+
+    // Select a random medication
+    const medication =
+      medications[Math.floor(Math.random() * medications.length)];
+    const dosageForm =
+      medication.dosageForms[
+        Math.floor(Math.random() * medication.dosageForms.length)
+      ];
+    const strength =
+      medication.strengths[
+        Math.floor(Math.random() * medication.strengths.length)
+      ];
+    const manufacturer =
+      manufacturers[Math.floor(Math.random() * manufacturers.length)];
+
+    const sampleData = {
+      name: `${medication.name} ${strength}`,
+      genericName: medication.genericName || '',
+      description: generateDescription(medication, dosageForm, strength),
+      category: medication.category,
+      dosageForm: dosageForm,
+      strength: strength,
+      manufacturer: manufacturer,
+      barcode: generateBarcode(),
+      activeIngredients: medication.genericName ? [medication.genericName] : [],
+    };
+
+    form.reset(sampleData);
+    toast.success('Form populated with realistic pharmaceutical data', {
+      description:
+        'All fields have been filled with industry-standard test values',
+      duration: 3000,
+    });
+  };
 
   // Handle form submission
   const onSubmit = (values: ProductFormValues) => {
@@ -158,17 +340,40 @@ export function ProductFormPage({ mode }: ProductFormPageProps) {
 
   return (
     <div className="container mx-auto space-y-6 py-6">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate({ to: '/products' })}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {mode === 'create' ? 'Create New Product' : 'Edit Product'}
-        </h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate({ to: '/products' })}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {mode === 'create' ? 'Create New Product' : 'Edit Product'}
+          </h1>
+        </div>
+
+        {/* Debug button - only visible in development mode */}
+        {import.meta.env.DEV && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-muted-foreground/40 bg-muted/50 h-8 w-8 border-dashed"
+                  onClick={populateWithSampleData}
+                >
+                  <Bug className="text-muted-foreground h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Populate with sample data (dev mode only)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       <Form {...form}>
