@@ -1,3 +1,4 @@
+import type { DailyData } from '@/api/overview';
 import {
   type ChartConfig,
   ChartContainer,
@@ -17,7 +18,6 @@ import {
   YAxis,
 } from 'recharts';
 import ChartDebugger from './chart-debugger';
-import type { DailyData } from './utils';
 
 // Chart Visualization Component
 interface ChartVisualizationProps {
@@ -136,7 +136,7 @@ function ChartVisualization({
                 </>
               ) : (
                 <Bar
-                  dataKey="prescriptions"
+                  dataKey="currentPrescriptions"
                   fill="hsl(var(--chart-1))"
                   radius={4}
                   animationDuration={800}
@@ -243,19 +243,19 @@ function ChartVisualization({
                 <>
                   <Line
                     type="natural"
-                    dataKey="prescriptions"
+                    dataKey="currentPrescriptions"
                     stroke="var(--color-prescriptions)"
                     strokeWidth={2}
-                    dot={{ r: 3, fill: 'var(--color-prescriptions)' }}
+                    dot={{ r: 3, fill: "var(--color-prescriptions)" }}
                     activeDot={{ r: 5 }}
                     yAxisId="left"
                   />
                   <Line
                     type="natural"
-                    dataKey="revenue"
+                    dataKey="currentRevenue"
                     stroke="var(--color-revenue)"
                     strokeWidth={2}
-                    dot={{ r: 3, fill: 'var(--color-revenue)' }}
+                    dot={{ r: 3, fill: "var(--color-revenue)" }}
                     activeDot={{ r: 5 }}
                     yAxisId="right"
                     strokeDasharray="5 5"
