@@ -27,6 +27,7 @@ export const ProductSchema = z.object({
   manufacturer: z.string().min(1, 'Manufacturer is required'),
   barcode: z.string().nullable().optional(),
   activeIngredients: z.any(),
+  image: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -43,6 +44,7 @@ export const CreateProductRequestSchema = z.object({
   manufacturer: z.string().min(1, 'Manufacturer is required'),
   barcode: z.string().nullable().optional(),
   activeIngredients: z.any(),
+  image: z.string().nullable().optional(),
 });
 
 export type CreateProductRequest = z.infer<typeof CreateProductRequestSchema>;
@@ -58,6 +60,7 @@ export const UpdateProductRequestSchema = z.object({
   manufacturer: z.string().min(1, 'Manufacturer is required').optional(),
   barcode: z.string().nullable().optional(),
   activeIngredients: z.any().optional(),
+  image: z.string().nullable().optional(),
 });
 
 export type UpdateProductRequest = z.infer<typeof UpdateProductRequestSchema>;
