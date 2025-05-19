@@ -1,12 +1,11 @@
 use async_trait::async_trait;
-use db_entity::{Product, ProductCategory, ProductModel};
+use db_entity::{Product, ProductCategory, ProductModel, utils::db_id::DbId};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
     QueryFilter, QueryOrder, Set,
 };
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::error::ServiceError;
 
@@ -30,7 +29,7 @@ pub trait ProductRepository: Send + Sync {
     /// Update an existing product
     async fn update_product(
         &self,
-        id: Uuid,
+        id: DbId,
         name: Option<String>,
         generic_name: Option<String>,
         description: Option<String>,
@@ -43,10 +42,10 @@ pub trait ProductRepository: Send + Sync {
     ) -> Result<ProductModel, ServiceError>;
 
     /// Delete a product by ID
-    async fn delete_product(&self, id: Uuid) -> Result<(), ServiceError>;
+    async fn delete_product(&self, id: DbId) -> Result<(), ServiceError>;
 
     /// Get a product by ID
-    async fn get_product_by_id(&self, id: Uuid) -> Result<Option<ProductModel>, ServiceError>;
+    async fn get_product_by_id(&self, id: DbId) -> Result<Option<ProductModel>, ServiceError>;
 
     /// Get a product by name
     async fn get_product_by_name(&self, name: &str) -> Result<Option<ProductModel>, ServiceError>;
@@ -133,7 +132,7 @@ impl ProductRepository for SeaOrmProductRepository {
 
     async fn update_product(
         &self,
-        id: Uuid,
+        id: DbId,
         name: Option<String>,
         generic_name: Option<String>,
         description: Option<String>,
@@ -145,7 +144,7 @@ impl ProductRepository for SeaOrmProductRepository {
         active_ingredients: Option<JsonValue>,
     ) -> Result<ProductModel, ServiceError> {
         // Find product by ID
-        let product = Product::find_by_id(id)
+        let product = Product::find_by_id(id.clone())
             .one(&*self.db)
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Product with ID {} not found", id)))?;
@@ -207,8 +206,8 @@ impl ProductRepository for SeaOrmProductRepository {
         Ok(updated_product)
     }
 
-    async fn delete_product(&self, id: Uuid) -> Result<(), ServiceError> {
-        let product = Product::find_by_id(id)
+    async fn delete_product(&self, id: DbId) -> Result<(), ServiceError> {
+        let product = Product::find_by_id(id.clone())
             .one(&*self.db)
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Product with ID {} not found", id)))?;
@@ -217,7 +216,7 @@ impl ProductRepository for SeaOrmProductRepository {
         Ok(())
     }
 
-    async fn get_product_by_id(&self, id: Uuid) -> Result<Option<ProductModel>, ServiceError> {
+    async fn get_product_by_id(&self, id: DbId) -> Result<Option<ProductModel>, ServiceError> {
         let product = Product::find_by_id(id).one(&*self.db).await?;
         Ok(product)
     }
@@ -280,6 +279,8 @@ impl ProductRepository for SeaOrmProductRepository {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use sea_orm::{DatabaseBackend, MockDatabase};
     use serde_json::json;
@@ -287,7 +288,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_product() {
         // Create a mock product that will be returned after insertion
-        let product_id = Uuid::now_v7();
+        let product_id = DbId::from_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f").unwrap().into();
         let now = chrono::Utc::now().into();
         let mock_product = ProductModel {
             id: product_id,
