@@ -5,6 +5,7 @@ import {
   useProduct,
   useUpdateProduct,
 } from '@/api/product';
+import { DebugPanel } from '@/components/debug/debug-panel';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -23,12 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Bug, Loader2, Save } from 'lucide-react';
@@ -354,25 +349,28 @@ export function ProductFormPage({ mode }: ProductFormPageProps) {
           </h1>
         </div>
 
-        {/* Debug button - only visible in development mode */}
+        {/* Debug panel for form data */}
         {import.meta.env.DEV && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <DebugPanel
+            data={form.getValues()}
+            componentName="ProductForm"
+            position="inline"
+            buttonClassName="h-8 w-8 border-dashed border-muted-foreground/40 bg-muted/50"
+            icon={<Bug className="text-muted-foreground h-4 w-4" />}
+            additionalInfo={{
+              Mode: mode,
+              Action: (
                 <Button
                   variant="outline"
-                  size="icon"
-                  className="border-muted-foreground/40 bg-muted/50 h-8 w-8 border-dashed"
+                  size="sm"
                   onClick={populateWithSampleData}
+                  className="h-6 text-xs"
                 >
-                  <Bug className="text-muted-foreground h-4 w-4" />
+                  Populate with sample data
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Populate with sample data (dev mode only)</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+              ),
+            }}
+          />
         )}
       </div>
 

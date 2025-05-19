@@ -21,7 +21,7 @@ export function ProductDetailPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto">
         <div className="bg-destructive/10 text-destructive rounded-md p-4">
           <p>Error loading product: {String(error)}</p>
           <Button
@@ -39,7 +39,7 @@ export function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto">
         <div className="bg-muted rounded-md p-4">
           <p>Product not found</p>
           <Button
@@ -56,7 +56,7 @@ export function ProductDetailPage() {
   }
 
   return (
-    <div className="container mx-auto space-y-6 py-6">
+    <div className="container mx-auto space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2">
           <Button
