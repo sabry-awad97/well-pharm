@@ -23,6 +23,10 @@ pub use auth::{JwtManager, TokenStore};
 mod product;
 pub use product::{ProductRepository, SeaOrmProductRepository};
 
+// Add inventory module
+mod inventory;
+pub use inventory::{InventoryRepository, SeaOrmInventoryRepository};
+
 /// Service manager containing all application services
 #[derive(Getters, TypedBuilder)]
 pub struct ServiceManager {
@@ -36,6 +40,9 @@ pub struct ServiceManager {
 
     // Add product repository
     product_repository: Arc<dyn ProductRepository>,
+
+    // Add inventory repository
+    inventory_repository: Arc<dyn InventoryRepository>,
 }
 
 /// Sets up all services for the application
@@ -56,12 +63,16 @@ pub async fn setup_services(db: &Arc<DatabaseConnection>) -> Result<ServiceManag
     // Initialize product repository
     let product_repository = Arc::new(SeaOrmProductRepository::new(db.clone()));
 
+    // Initialize inventory repository
+    let inventory_repository = Arc::new(SeaOrmInventoryRepository::new(db.clone()));
+
     Ok(ServiceManager::builder()
         .db(db.clone())
         .user_repository(user_repository)
         .jwt_manager(jwt_manager)
         .token_store(token_store)
         .product_repository(product_repository)
+        .inventory_repository(inventory_repository)
         .build())
 }
 

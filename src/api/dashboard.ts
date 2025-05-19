@@ -1,7 +1,9 @@
 import { createComponentLogger } from '@/lib/logger';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { invoke } from '@tauri-apps/api/core';
 import { useEffect } from 'react';
+import { z } from 'zod';
 import { useOnboardingStatus } from './onboarding';
 
 const dashboardAPILog = createComponentLogger('DashboardAPI');
@@ -34,16 +36,53 @@ export interface DashboardStats {
 }
 
 /**
- * Low stock inventory item
- * @interface InventoryItem
+ * Zod schema for inventory item priority
  */
-export interface InventoryItem {
-  id: string;
-  name: string;
-  stockLevel: number;
-  threshold: number;
-  percentRemaining: number;
-}
+export const InventoryItemPrioritySchema = z.enum(['low', 'medium', 'high']);
+
+/**
+ * Zod schema for inventory items
+ */
+export const InventoryItemSchema = z.object({
+  id: z.string().uuid('Invalid inventory item ID'),
+  name: z.string().min(1, 'Item name is required'),
+  stockLevel: z
+    .number()
+    .int('Stock level must be an integer')
+    .nonnegative('Stock level must be non-negative'),
+  threshold: z
+    .number()
+    .int('Threshold must be an integer')
+    .positive('Threshold must be positive'),
+  percentRemaining: z
+    .number()
+    .int('Percent remaining must be an integer')
+    .min(0, 'Percent remaining must be at least 0')
+    .max(100, 'Percent remaining cannot exceed 100'),
+
+  // Optional fields
+  category: z.string().optional(),
+  priority: InventoryItemPrioritySchema.optional(),
+  supplier: z.string().optional(),
+  lastOrdered: z.string().optional(),
+  stockHistory: z.array(z.number().int().nonnegative()).optional(),
+  reorderAmount: z
+    .number()
+    .int()
+    .positive('Reorder amount must be positive')
+    .optional(),
+  unit: z.string().optional(),
+});
+
+/**
+ * Zod schema for an array of inventory items
+ */
+export const InventoryItemsSchema = z.array(InventoryItemSchema);
+
+/**
+ * Type definition derived from the Zod schema
+ */
+export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 
 /**
  * Recent patient data
@@ -149,43 +188,13 @@ export async function fetchLowStockItems(): Promise<InventoryItem[]> {
   dashboardAPILog.info('Fetching low stock inventory items');
 
   try {
-    // In the future, this will call the actual backend API
-    // await invoke('fetch_low_stock_items')
+    // Call the Tauri backend command
+    const rawItems = await invoke<unknown>('fetch_low_stock_items');
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 600));
+    // Validate the response with Zod schema
+    const validatedItems = InventoryItemsSchema.parse(rawItems);
 
-    // Return mock data
-    return [
-      {
-        id: '1',
-        name: 'Paracetamol 500mg',
-        stockLevel: 15,
-        threshold: 100,
-        percentRemaining: 15,
-      },
-      {
-        id: '2',
-        name: 'Amoxicillin 250mg',
-        stockLevel: 32,
-        threshold: 100,
-        percentRemaining: 32,
-      },
-      {
-        id: '3',
-        name: 'Ibuprofen 400mg',
-        stockLevel: 78,
-        threshold: 100,
-        percentRemaining: 78,
-      },
-      {
-        id: '4',
-        name: 'Cetirizine 10mg',
-        stockLevel: 8,
-        threshold: 100,
-        percentRemaining: 8,
-      },
-    ];
+    return validatedItems;
   } catch (error) {
     dashboardAPILog.error('Failed to fetch low stock items', error);
     throw new Error('Failed to fetch low stock inventory items');

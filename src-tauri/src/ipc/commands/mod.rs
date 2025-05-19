@@ -2,6 +2,7 @@ use tauri::{Runtime, ipc::Invoke};
 
 mod auth;
 mod onboarding;
+mod inventory;
 
 pub fn create_handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
@@ -15,5 +16,6 @@ pub fn create_handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         onboarding::setup_workspace,
         onboarding::complete_onboarding,
         onboarding::test_database_connection,
+        inventory::fetch_low_stock_items,
     ]
 }
