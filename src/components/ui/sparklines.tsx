@@ -168,7 +168,7 @@ export const Sparklines = React.forwardRef<HTMLDivElement, SparklineProps>(
           preserveAspectRatio={preserveAspectRatio}
           className="h-full w-full"
         >
-          <title>Sparkline Chart</title>
+          <title>{""}</title>
           {React.Children.map(children, child => {
             if (React.isValidElement<SparklineChildProps>(child)) {
               return React.cloneElement(child, {

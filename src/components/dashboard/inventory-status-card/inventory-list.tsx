@@ -1,5 +1,6 @@
 import type { InventoryItem } from '@/api/dashboard';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useEffect, useRef, useState } from 'react';
 import { InventoryItemComponent } from './inventory-item';
 
@@ -34,6 +35,22 @@ export const InventoryList = memo(function InventoryList({
     width: window.innerWidth,
     height: window.innerHeight,
   });
+
+  // Animation variants for slide-in effect
+  const itemVariants = {
+    hidden: {
+      opacity: 0,
+      x: -20,
+    },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.3,
+        ease: 'easeOut',
+      },
+    },
+  };
 
   // Estimated item sizes - we'll use dynamic measurement for actual rendering
   const estimatedItemHeight = 60; // Base height for collapsed items
@@ -92,32 +109,44 @@ export const InventoryList = memo(function InventoryList({
           position: 'relative',
         }}
       >
-        {virtualizer.getVirtualItems().map(virtualItem => {
-          const item = items[virtualItem.index];
-          return (
-            <div
-              key={item.id}
-              data-index={virtualItem.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualItem.start}px)`,
-              }}
-            >
-              <InventoryItemComponent
-                item={item}
-                isExpanded={!!expandedItems[item.id]}
-                isReordering={!!isReordering[item.id]}
-                onToggleExpand={onToggleExpand}
-                onReorder={onReorder}
-                onViewDetails={onViewDetails}
-              />
-            </div>
-          );
-        })}
+        <AnimatePresence>
+          {virtualizer.getVirtualItems().map(virtualItem => {
+            const item = items[virtualItem.index];
+            return (
+              <div
+                key={item.id}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
+                  variants={itemVariants}
+                  transition={{
+                    delay: Math.min(0.1, virtualItem.index * 0.02),
+                  }}
+                >
+                  <InventoryItemComponent
+                    item={item}
+                    isExpanded={!!expandedItems[item.id]}
+                    isReordering={!!isReordering[item.id]}
+                    onToggleExpand={onToggleExpand}
+                    onReorder={onReorder}
+                    onViewDetails={onViewDetails}
+                  />
+                </motion.div>
+              </div>
+            );
+          })}
+        </AnimatePresence>
       </div>
     </div>
   );
