@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Eye, Edit, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ProductActionsProps {
   productId: string;
@@ -26,6 +27,7 @@ export function ProductActions({
   onEdit,
 }: ProductActionsProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { mutate: deleteProduct, isPending } = useDeleteProduct();
 
@@ -34,6 +36,8 @@ export function ProductActions({
       onSuccess: () => {
         toast.success('Product deleted successfully');
         setIsDeleteDialogOpen(false);
+        // Invalidate queries to refresh the product list
+        queryClient.invalidateQueries({ queryKey: ['products'] });
       },
       onError: error => {
         toast.error('Failed to delete product', {

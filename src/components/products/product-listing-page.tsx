@@ -22,19 +22,29 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  type SortingState,
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
 import { ArrowUpDown, Loader2, Plus, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HighlightedText } from './highlighted-text';
 import { ProductActions } from './product-actions';
 import { ProductCategoryBadge } from './product-category-badge';
+import { ProductDialog } from './product-dialog';
 import { ProductFilters } from './product-filters';
 
 // Number of items per page
 const PAGE_SIZE = 10;
 
 export function ProductListingPage() {
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,11 +57,17 @@ export function ProductListingPage() {
   >(undefined);
 
   // State for sorting
-  const [sortField, setSortField] = useState<keyof Product>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'name', desc: false },
+  ]);
 
-  // State for pagination
-  const [currentPage, setCurrentPage] = useState(1);
+  // State for dialogs
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
 
   // Debounce search query
   useEffect(() => {
@@ -84,67 +100,32 @@ export function ProductListingPage() {
     return filteredProducts || [];
   }, [debouncedQuery, searchResults, filteredProducts]);
 
-  // Sort products
-  const sortedProducts = useMemo(() => {
-    if (!products) return [];
-
-    return [...products].sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-
-      if (aValue === null || aValue === undefined)
-        return sortDirection === 'asc' ? -1 : 1;
-      if (bValue === null || bValue === undefined)
-        return sortDirection === 'asc' ? 1 : -1;
-
-      const comparison = String(aValue).localeCompare(String(bValue));
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-  }, [products, sortField, sortDirection]);
-
-  // Paginate products
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    return sortedProducts.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [sortedProducts, currentPage]);
-
-  // Calculate total pages
-  const totalPages = Math.ceil(sortedProducts.length / PAGE_SIZE);
-
-  // Handle sort toggle
-  const handleSort = (field: keyof Product) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  // Reset pagination when filters or search change
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedQuery, selectedCategory, selectedManufacturer]);
-
   // Loading and error states
   const isLoading = isSearchLoading || isFilterLoading;
   const error = searchError || filterError;
 
-  // Navigate to create product page
-  const handleCreateProduct = () => {
-    navigate({ to: '/products/new' });
-  };
+  // Handle create product dialog
+  const handleCreateProduct = useCallback(() => {
+    setCreateDialogOpen(true);
+  }, []);
 
-  // Navigate to product details
-  const handleViewProduct = (id: string) => {
-    navigate({ to: '/products/$productId', params: { productId: id } });
-  };
+  // Handle view product dialog
+  const handleViewProduct = useCallback((id: string) => {
+    setSelectedProductId(id);
+    setViewDialogOpen(true);
+  }, []);
 
-  // Navigate to edit product
-  const handleEditProduct = (id: string) => {
-    navigate({ to: '/products/$productId/edit', params: { productId: id } });
-  };
+  // Handle edit product dialog
+  const handleEditProduct = useCallback((id: string) => {
+    setSelectedProductId(id);
+    setEditDialogOpen(true);
+  }, []);
+
+  // Handle dialog success (refresh data)
+  const handleDialogSuccess = useCallback(() => {
+    // Invalidate queries to refresh the product list
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+  }, [queryClient]);
 
   // Extract unique manufacturers for filter dropdown
   const manufacturers = useMemo(() => {
@@ -155,8 +136,165 @@ export function ProductListingPage() {
     return Array.from(uniqueManufacturers).sort();
   }, [filteredProducts]);
 
+  const columns = useMemo(() => {
+    // Column definitions for TanStack Table
+    const columnHelper = createColumnHelper<Product>();
+
+    return [
+      columnHelper.accessor('name', {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="hover:text-primary flex items-center space-x-1 p-0 font-medium"
+          >
+            <span>Product Name</span>
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <div className="font-medium">
+            <button
+              type="button"
+              className="hover:text-primary text-left hover:underline"
+              onClick={() => handleViewProduct(row.original.id)}
+            >
+              <HighlightedText
+                text={row.original.name}
+                highlight={debouncedQuery}
+              />
+            </button>
+          </div>
+        ),
+        size: 250,
+      }),
+      columnHelper.accessor('genericName', {
+        header: 'Generic Name',
+        cell: ({ row }) => (
+          <div className="hidden md:block">
+            <HighlightedText
+              text={row.original.genericName || '-'}
+              highlight={debouncedQuery}
+            />
+          </div>
+        ),
+      }),
+      columnHelper.accessor('category', {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="hover:text-primary flex items-center space-x-1 p-0 font-medium"
+          >
+            <span>Category</span>
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <ProductCategoryBadge category={row.original.category} />
+        ),
+      }),
+      columnHelper.accessor('dosageForm', {
+        header: 'Dosage Form',
+        cell: ({ row }) => (
+          <div className="hidden lg:block">{row.original.dosageForm}</div>
+        ),
+      }),
+      columnHelper.accessor('strength', {
+        header: 'Strength',
+        cell: ({ row }) => (
+          <div className="hidden lg:block">{row.original.strength}</div>
+        ),
+      }),
+      columnHelper.accessor('manufacturer', {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="hover:text-primary flex items-center space-x-1 p-0 font-medium"
+          >
+            <span>Manufacturer</span>
+            <ArrowUpDown className="ml-1 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <HighlightedText
+            text={row.original.manufacturer}
+            highlight={debouncedQuery}
+          />
+        ),
+      }),
+      columnHelper.display({
+        id: 'actions',
+        header: () => <div className="text-right">Actions</div>,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <ProductActions
+              productId={row.original.id}
+              onView={() => handleViewProduct(row.original.id)}
+              onEdit={() => handleEditProduct(row.original.id)}
+            />
+          </div>
+        ),
+      }),
+    ];
+  }, [debouncedQuery, handleViewProduct, handleEditProduct]);
+
+  // Initialize TanStack Table
+  const table = useReactTable({
+    data: products,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: PAGE_SIZE,
+      },
+    },
+  });
+
+  // Reset pagination when filters or search change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  useEffect(() => {
+    table.resetPageIndex();
+  }, [debouncedQuery, selectedCategory, selectedManufacturer, table]);
+
+  // Calculate total pages for custom pagination UI
+  const totalPages = Math.ceil(
+    table.getFilteredRowModel().rows.length / PAGE_SIZE,
+  );
+  const currentPage = table.getState().pagination.pageIndex + 1;
+
   return (
     <div className="container mx-auto space-y-6">
+      {/* Product Dialogs */}
+      <ProductDialog
+        mode="create"
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={handleDialogSuccess}
+      />
+
+      <ProductDialog
+        mode="view"
+        productId={selectedProductId}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+      />
+
+      <ProductDialog
+        mode="edit"
+        productId={selectedProductId}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={handleDialogSuccess}
+      />
+
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Products</h1>
@@ -179,6 +317,7 @@ export function ProductListingPage() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-10"
+            aria-label="Search products"
           />
         </div>
 
@@ -193,22 +332,28 @@ export function ProductListingPage() {
 
       {/* Error state */}
       {error && (
-        <div className="bg-destructive/10 text-destructive rounded-md p-4">
+        <div
+          className="bg-destructive/10 text-destructive rounded-md p-4"
+          role="alert"
+        >
           <p>Error loading products: {String(error)}</p>
         </div>
       )}
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex items-center justify-center py-8">
+        <div
+          className="flex items-center justify-center py-8"
+          aria-live="polite"
+        >
           <Loader2 className="text-primary h-8 w-8 animate-spin" />
           <span className="ml-2">Loading products...</span>
         </div>
       )}
 
       {/* Empty state */}
-      {!isLoading && paginatedProducts.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-md border py-12 text-center flex-1 min-h-[calc(100vh-11rem)]">
+      {!isLoading && table.getRowModel().rows.length === 0 && (
+        <div className="flex min-h-[calc(100vh-11rem)] flex-1 flex-col items-center justify-center rounded-md border py-12 text-center">
           <div className="bg-primary/10 mx-auto flex h-12 w-12 items-center justify-center rounded-full">
             <Search className="text-primary h-6 w-6" />
           </div>
@@ -230,97 +375,60 @@ export function ProductListingPage() {
       )}
 
       {/* Products table */}
-      {!isLoading && paginatedProducts.length > 0 && (
+      {!isLoading && table.getRowModel().rows.length > 0 && (
         <>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[250px]">
-                    <button
-                      type="button"
-                      className="hover:text-primary flex items-center space-x-1"
-                      onClick={() => handleSort('name')}
-                    >
-                      <span>Product Name</span>
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Generic Name
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      type="button"
-                      className="hover:text-primary flex items-center space-x-1"
-                      onClick={() => handleSort('category')}
-                    >
-                      <span>Category</span>
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Dosage Form
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Strength
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      type="button"
-                      className="hover:text-primary flex items-center space-x-1"
-                      onClick={() => handleSort('manufacturer')}
-                    >
-                      <span>Manufacturer</span>
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <TableHead
+                        key={header.id}
+                        style={{ width: header.column.getSize() }}
+                        className={
+                          header.id === 'genericName'
+                            ? 'hidden md:table-cell'
+                            : header.id === 'dosageForm' ||
+                                header.id === 'strength'
+                              ? 'hidden lg:table-cell'
+                              : undefined
+                        }
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
               </TableHeader>
               <TableBody>
-                {paginatedProducts.map(product => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">
-                      <button
-                        type="button"
-                        className="hover:text-primary text-left hover:underline"
-                        onClick={() => handleViewProduct(product.id)}
+                {table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell
+                        key={cell.id}
+                        className={
+                          cell.column.id === 'genericName'
+                            ? 'hidden md:table-cell'
+                            : cell.column.id === 'dosageForm' ||
+                                cell.column.id === 'strength'
+                              ? 'hidden lg:table-cell'
+                              : cell.column.id === 'actions'
+                                ? 'text-right'
+                                : undefined
+                        }
                       >
-                        <HighlightedText
-                          text={product.name}
-                          highlight={debouncedQuery}
-                        />
-                      </button>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <HighlightedText
-                        text={product.genericName || '-'}
-                        highlight={debouncedQuery}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <ProductCategoryBadge category={product.category} />
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {product.dosageForm}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {product.strength}
-                    </TableCell>
-                    <TableCell>
-                      <HighlightedText
-                        text={product.manufacturer}
-                        highlight={debouncedQuery}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <ProductActions
-                        productId={product.id}
-                        onView={() => handleViewProduct(product.id)}
-                        onEdit={() => handleEditProduct(product.id)}
-                      />
-                    </TableCell>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
@@ -333,8 +441,8 @@ export function ProductListingPage() {
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    isActive={currentPage > 1}
+                    onClick={() => table.previousPage()}
+                    isActive={table.getCanPreviousPage()}
                   />
                 </PaginationItem>
 
@@ -360,7 +468,7 @@ export function ProductListingPage() {
                     return (
                       <PaginationItem key={pageNum}>
                         <PaginationLink
-                          onClick={() => setCurrentPage(pageNum)}
+                          onClick={() => table.setPageIndex(pageNum - 1)}
                           isActive={currentPage === pageNum}
                         >
                           {pageNum}
@@ -382,10 +490,8 @@ export function ProductListingPage() {
 
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() =>
-                      setCurrentPage(p => Math.min(totalPages, p + 1))
-                    }
-                    isActive={currentPage < totalPages}
+                    onClick={() => table.nextPage()}
+                    isActive={table.getCanNextPage()}
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -396,4 +502,3 @@ export function ProductListingPage() {
     </div>
   );
 }
-
