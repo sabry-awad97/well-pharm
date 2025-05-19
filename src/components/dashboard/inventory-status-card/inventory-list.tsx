@@ -1,8 +1,73 @@
 import type { InventoryItem } from '@/api/dashboard';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useInView } from 'framer-motion';
 import { memo, useEffect, useRef, useState } from 'react';
 import { InventoryItemComponent } from './inventory-item';
+
+// Create a wrapper component for individual inventory items with scroll-triggered animations
+const AnimatedInventoryItem = memo(function AnimatedInventoryItem({
+  item,
+  index,
+  isExpanded,
+  isReordering,
+  onToggleExpand,
+  onReorder,
+  onViewDetails,
+}: {
+  item: InventoryItem;
+  index: number;
+  isExpanded: boolean;
+  isReordering: boolean;
+  onToggleExpand: (itemId: string) => void;
+  onReorder?: (item: InventoryItem) => void;
+  onViewDetails?: (itemId: string) => void;
+}) {
+  const itemRef = useRef(null);
+  const isInView = useInView(itemRef, { once: true, amount: 0.3 });
+
+  // Enhanced animation variants with staggered entrance
+  const enhancedItemVariants = {
+    hidden: {
+      opacity: 0,
+      x: -40,
+    },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.25, 0.1, 0.25, 1], // Custom easing curve
+        delay: Math.min(0.05, index * 0.015), // Staggered delay based on item index
+      },
+    },
+    exit: {
+      opacity: 0,
+      x: -20,
+      transition: {
+        duration: 0.2,
+      },
+    },
+  };
+
+  return (
+    <motion.div
+      ref={itemRef}
+      initial="hidden"
+      animate={isInView ? 'visible' : 'hidden'}
+      exit="exit"
+      variants={enhancedItemVariants}
+    >
+      <InventoryItemComponent
+        item={item}
+        isExpanded={isExpanded}
+        isReordering={isReordering}
+        onToggleExpand={onToggleExpand}
+        onReorder={onReorder}
+        onViewDetails={onViewDetails}
+      />
+    </motion.div>
+  );
+});
 
 interface InventoryListProps {
   items: InventoryItem[];
@@ -31,26 +96,10 @@ export const InventoryList = memo(function InventoryList({
   const parentRef = useRef<HTMLDivElement>(null);
 
   // Track window size for responsive adjustments
-  const [windowSize, setWindowSize] = useState({
+  const [_windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
-
-  // Animation variants for slide-in effect
-  const itemVariants = {
-    hidden: {
-      opacity: 0,
-      x: -20,
-    },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: {
-        duration: 0.3,
-        ease: 'easeOut',
-      },
-    },
-  };
 
   // Estimated item sizes - we'll use dynamic measurement for actual rendering
   const estimatedItemHeight = 60; // Base height for collapsed items
@@ -125,24 +174,15 @@ export const InventoryList = memo(function InventoryList({
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
-                <motion.div
-                  initial="hidden"
-                  animate="visible"
-                  exit="hidden"
-                  variants={itemVariants}
-                  transition={{
-                    delay: Math.min(0.1, virtualItem.index * 0.02),
-                  }}
-                >
-                  <InventoryItemComponent
-                    item={item}
-                    isExpanded={!!expandedItems[item.id]}
-                    isReordering={!!isReordering[item.id]}
-                    onToggleExpand={onToggleExpand}
-                    onReorder={onReorder}
-                    onViewDetails={onViewDetails}
-                  />
-                </motion.div>
+                <AnimatedInventoryItem
+                  item={item}
+                  index={virtualItem.index}
+                  isExpanded={!!expandedItems[item.id]}
+                  isReordering={!!isReordering[item.id]}
+                  onToggleExpand={onToggleExpand}
+                  onReorder={onReorder}
+                  onViewDetails={onViewDetails}
+                />
               </div>
             );
           })}
