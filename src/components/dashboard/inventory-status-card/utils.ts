@@ -18,7 +18,7 @@ export function getStatusColor(percent: number): string {
  * @returns Tailwind CSS classes for badge styling
  */
 export function getPriorityColor(
-  priority?: z.infer<typeof InventoryItemPrioritySchema>,
+  priority?: z.infer<typeof InventoryItemPrioritySchema> | null,
 ): string {
   switch (priority) {
     case 'high':
@@ -47,7 +47,7 @@ export function sortInventoryItems<
   T extends {
     name: string;
     percentRemaining: number;
-    priority?: z.infer<typeof InventoryItemPrioritySchema>;
+    priority?: z.infer<typeof InventoryItemPrioritySchema> | null;
   },
 >(items: T[], sortBy: SortOption): T[] {
   return [...items].sort((a, b) => {
@@ -76,7 +76,11 @@ export function sortInventoryItems<
  * @returns Filtered array of inventory items
  */
 export function filterInventoryItems<
-  T extends { name: string; category?: string; supplier?: string },
+  T extends {
+    name: string;
+    category?: string | null;
+    supplier?: string | null;
+  },
 >(items: T[], filterText: string): T[] {
   if (!filterText) return items;
 

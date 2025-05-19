@@ -61,17 +61,22 @@ export const InventoryItemSchema = z.object({
     .max(100, 'Percent remaining cannot exceed 100'),
 
   // Optional fields
-  category: z.string().optional(),
-  priority: InventoryItemPrioritySchema.optional(),
-  supplier: z.string().optional(),
-  lastOrdered: z.string().optional(),
-  stockHistory: z.array(z.number().int().nonnegative()).optional(),
+  category: z.string().nullable().optional(),
+  priority: InventoryItemPrioritySchema.nullable().optional(),
+  supplier: z.string().nullable().optional(),
+  lastOrdered: z.string().nullable().optional(),
+  stockHistory: z.array(z.number().int().nonnegative()).nullable().optional(),
   reorderAmount: z
     .number()
     .int()
     .positive('Reorder amount must be positive')
+    .nullable()
     .optional(),
-  unit: z.string().optional(),
+  unit: z.string().nullable().optional(),
+
+  // New optional fields - fixed to handle null values
+  notes: z.string().nullable().optional(),
+  expiryDate: z.string().nullable().optional(),
 });
 
 /**

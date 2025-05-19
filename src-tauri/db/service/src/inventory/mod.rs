@@ -2,13 +2,15 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use db_entity::{Product, ProductModel};
 use sea_orm::{DatabaseConnection, EntityTrait, QueryOrder};
+use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::error::ServiceError;
 
 /// Inventory item with stock information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InventoryItem {
     pub id: Uuid,
     pub name: String,
@@ -20,6 +22,8 @@ pub struct InventoryItem {
     pub stock_history: Option<Vec<u32>>,
     pub reorder_amount: Option<u32>,
     pub unit: Option<String>,
+    pub notes: Option<String>,
+    pub expiry_date: Option<String>,
 }
 
 /// Repository trait for inventory operations
@@ -86,6 +90,8 @@ impl SeaOrmInventoryRepository {
         let stock_history = None;
         let reorder_amount = None;
         let unit = None;
+        let notes = None;
+        let expiry_date = None;
 
         // Extract category as string
         let category = Some(format!("{:?}", product.category));
@@ -101,6 +107,8 @@ impl SeaOrmInventoryRepository {
             stock_history,
             reorder_amount,
             unit,
+            notes,
+            expiry_date,
         })
     }
 }
@@ -124,6 +132,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![120, 100, 80, 50, 30, 15]),
                 reorder_amount: Some(200),
                 unit: Some("boxes".to_string()),
+                notes: Some("Order more before end of month".to_string()),
+                expiry_date: Some("2025-06-30".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d480").unwrap(),
@@ -136,6 +146,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![150, 120, 90, 60, 32]),
                 reorder_amount: Some(150),
                 unit: Some("bottles".to_string()),
+                notes: None,
+                expiry_date: Some("2024-12-15".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d481").unwrap(),
@@ -148,6 +160,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![200, 180, 150, 120, 100, 78]),
                 reorder_amount: Some(150),
                 unit: Some("boxes".to_string()),
+                notes: Some("Popular item, consider increasing threshold".to_string()),
+                expiry_date: Some("2025-03-20".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d482").unwrap(),
@@ -160,6 +174,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![80, 60, 40, 25, 8]),
                 reorder_amount: Some(100),
                 unit: Some("packs".to_string()),
+                notes: Some("Order more before end of month".to_string()),
+                expiry_date: Some("2025-06-30".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d483").unwrap(),
@@ -172,6 +188,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![100, 80, 50, 30, 5]),
                 reorder_amount: Some(100),
                 unit: Some("bottles".to_string()),
+                notes: None,
+                expiry_date: Some("2024-12-15".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d484").unwrap(),
@@ -184,6 +202,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![100, 75, 50, 25]),
                 reorder_amount: Some(100),
                 unit: Some("boxes".to_string()),
+                notes: None,
+                expiry_date: Some("2024-12-15".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d485").unwrap(),
@@ -196,6 +216,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![50, 40, 30, 20, 12]),
                 reorder_amount: Some(50),
                 unit: Some("packs".to_string()),
+                notes: None,
+                expiry_date: Some("2024-12-15".to_string()),
             },
             InventoryItem {
                 id: Uuid::parse_str("f47ac10b-58cc-4372-a567-0e02b2c3d486").unwrap(),
@@ -208,6 +230,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 stock_history: Some(vec![40, 30, 20, 10, 3]),
                 reorder_amount: Some(40),
                 unit: Some("bottles".to_string()),
+                notes: None,
+                expiry_date: Some("2024-12-15".to_string()),
             },
         ];
 

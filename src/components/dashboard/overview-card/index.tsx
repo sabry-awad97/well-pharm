@@ -61,7 +61,8 @@ export function OverviewCard({
     return chartData.map((item, index) => ({
       day: item.day,
       currentPrescriptions: item.currentPrescriptions,
-      previousPrescriptions: previousWeekData[index]?.previousPrescriptions || 0,
+      previousPrescriptions:
+        previousWeekData[index]?.previousPrescriptions || 0,
       currentRevenue: item.currentRevenue,
       previousRevenue: previousWeekData[index]?.previousRevenue || 0,
     }));
@@ -100,7 +101,11 @@ export function OverviewCard({
     [chartData],
   );
   const totalPreviousWeekPrescriptions = React.useMemo(
-    () => previousWeekData.reduce((sum, item) => sum + item.previousPrescriptions, 0),
+    () =>
+      previousWeekData.reduce(
+        (sum, item) => sum + item.previousPrescriptions,
+        0,
+      ),
     [previousWeekData],
   );
 
@@ -127,7 +132,9 @@ export function OverviewCard({
     if (chartData.length === 0) return 'N/A';
     return chartData.reduce(
       (busiest, current) =>
-        current.currentPrescriptions > busiest.currentPrescriptions ? current : busiest,
+        current.currentPrescriptions > busiest.currentPrescriptions
+          ? current
+          : busiest,
       chartData[0],
     ).day;
   }, [chartData]);

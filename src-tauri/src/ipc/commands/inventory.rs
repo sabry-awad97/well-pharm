@@ -17,6 +17,8 @@ pub struct LowStockItemResponse {
     stock_history: Option<Vec<u32>>,
     reorder_amount: Option<u32>,
     unit: Option<String>,
+    notes: Option<String>,
+    expiry_date: Option<String>,
 }
 
 #[tauri::command]
@@ -64,6 +66,8 @@ pub async fn fetch_low_stock_items(
                 stock_history: item.stock_history,
                 reorder_amount: item.reorder_amount,
                 unit: item.unit,
+                notes: item.notes,
+                expiry_date: item.expiry_date,
             }
         })
         .collect();

@@ -15,7 +15,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import humanTime from 'humantime';
 import { AlertTriangle, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { memo, useCallback } from 'react';
 import { getPriorityColor, getStatusColor } from './utils';
@@ -125,7 +124,7 @@ const StockProgressBar = memo(function StockProgressBar({
  */
 interface StockHistoryChartProps {
   /** Historical stock data */
-  stockHistory?: number[];
+  stockHistory?: number[] | null;
   /** Percentage of stock remaining */
   percentRemaining: number;
 }
@@ -170,42 +169,107 @@ interface ItemDetailsGridProps {
 const ItemDetailsGrid = memo(function ItemDetailsGrid({
   item,
 }: ItemDetailsGridProps) {
+  // Determine if stock level is critical (below threshold)
+  const isStockCritical = item.stockLevel < item.threshold * 0.2;
+
   return (
-    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-      {item.category && (
-        <div className="flex justify-between">
-          <span className="text-muted-foreground font-medium">Category:</span>
-          <span className="text-right">{item.category}</span>
-        </div>
-      )}
-      {item.supplier && (
-        <div className="flex justify-between">
-          <span className="text-muted-foreground font-medium">Supplier:</span>
-          <span className="text-right">{item.supplier}</span>
-        </div>
-      )}
-      {item.lastOrdered && (
-        <div className="flex justify-between">
-          <span className="text-muted-foreground font-medium">
-            Last ordered:
+    <div className="mt-3 rounded-sm bg-zinc-50/70 p-2.5 dark:bg-zinc-900/30">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        {/* Category */}
+        {item.category && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground min-w-[80px] font-medium">
+              Category:
+            </span>
+            <span className="truncate font-normal">{item.category}</span>
+          </div>
+        )}
+
+        {/* Supplier */}
+        {item.supplier && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground min-w-[80px] font-medium">
+              Supplier:
+            </span>
+            <span className="truncate font-normal">{item.supplier}</span>
+          </div>
+        )}
+
+        {/* Last ordered */}
+        {item.lastOrdered && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground min-w-[80px] font-medium">
+              Last ordered:
+            </span>
+            <span className="font-normal">{item.lastOrdered}</span>
+          </div>
+        )}
+
+        {/* Stock level */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground min-w-[80px] font-medium">
+            Stock level:
           </span>
-          <span className="text-right">
-            {humanTime(new Date(item.lastOrdered))}
+          <span
+            className={cn(
+              'font-medium tabular-nums',
+              isStockCritical ? 'text-red-500 dark:text-red-400' : '',
+            )}
+          >
+            {item.stockLevel} {item.unit || 'units'}
           </span>
         </div>
+
+        {/* Threshold */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground min-w-[80px] font-medium">
+            Threshold:
+          </span>
+          <span className="font-medium tabular-nums">
+            {item.threshold} {item.unit || 'units'}
+          </span>
+        </div>
+
+        {/* Reorder amount - if available */}
+        {item.reorderAmount && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground min-w-[80px] font-medium">
+              Reorder qty:
+            </span>
+            <span className="font-medium tabular-nums">
+              {item.reorderAmount} {item.unit || 'units'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Optional: Add a divider and additional information section */}
+      {(item.notes || item.expiryDate) && (
+        <>
+          <div className="my-2 border-t border-zinc-200 dark:border-zinc-700" />
+          <div className="grid grid-cols-1 gap-y-2 text-xs">
+            {/* Expiry date - if available */}
+            {item.expiryDate && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-muted-foreground min-w-[80px] font-medium">
+                  Expires:
+                </span>
+                <span className="font-normal">{item.expiryDate}</span>
+              </div>
+            )}
+
+            {/* Notes - if available */}
+            {item.notes && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-muted-foreground min-w-[80px] font-medium">
+                  Notes:
+                </span>
+                <span className="font-normal italic">{item.notes}</span>
+              </div>
+            )}
+          </div>
+        </>
       )}
-      <div className="flex justify-between">
-        <span className="text-muted-foreground font-medium">Stock level:</span>
-        <span className="text-right tabular-nums">
-          {item.stockLevel} {item.unit || 'units'}
-        </span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground font-medium">Threshold:</span>
-        <span className="text-right tabular-nums">
-          {item.threshold} {item.unit || 'units'}
-        </span>
-      </div>
     </div>
   );
 });
