@@ -7,7 +7,9 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { useRevenueExpenseData } from '@/api/finance';
 import { useTopSellingMedicines } from '@/api/medicine';
+import { RevenueExpenseChart } from '@/components/charts/revenue-expense-chart';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -162,6 +164,13 @@ export function LoginPage() {
       staleTime: 15 * 60 * 1000, // 15 minutes
     });
 
+  // Fetch revenue and expense data for dashboard preview
+  const {
+    data: revenueExpenseData,
+    isLoading: isLoadingRevenueData,
+    isError: isRevenueError,
+  } = useRevenueExpenseData('month');
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -197,23 +206,29 @@ export function LoginPage() {
             initial="hidden"
             animate="visible"
           >
-            <motion.div className="mb-8 text-center" variants={itemVariants}>
-              <div className="mb-6 flex justify-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                  <Pill className="h-6 w-6 text-gray-700" />
+            <motion.div className="mb-6 text-center" variants={itemVariants}>
+              <div className="mb-4 flex justify-center">
+                <div className="bg-primary/10 flex h-14 w-14 items-center justify-center rounded-full">
+                  <Pill className="text-primary h-7 w-7" />
                 </div>
               </div>
-              <h1 className="text-2xl font-bold tracking-tight">Sign In</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Welcome to WellPharm
+              </h1>
+              <p className="text-muted-foreground mt-2 text-sm">
+                Your complete pharmacy management solution for inventory, sales,
+                and patient care
+              </p>
             </motion.div>
 
             <motion.div variants={itemVariants}>
-              <Card className="border-none bg-transparent shadow-none">
-                <CardContent className="p-0">
+              <Card className="border-border/50 overflow-hidden bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-6">
                   {error && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mb-4"
+                      className="mb-6"
                     >
                       <Alert variant="destructive" className="py-2 text-sm">
                         <AlertDescription>{error}</AlertDescription>
@@ -224,25 +239,31 @@ export function LoginPage() {
                   <Form {...form}>
                     <form
                       onSubmit={form.handleSubmit(onSubmit)}
-                      className="space-y-4"
+                      className="space-y-5"
                     >
                       <FormField
                         control={form.control}
                         name="username_or_email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm">Email</FormLabel>
+                            <FormLabel className="text-sm font-medium">
+                              Email Address
+                            </FormLabel>
                             <FormControl>
                               <div className="relative">
                                 <Mail className="absolute top-2.5 left-3 h-4 w-4 text-gray-400" />
                                 <Input
                                   {...field}
-                                  placeholder="Enter your email"
+                                  placeholder="you@example.com"
                                   disabled={isLoading}
+                                  aria-describedby="email-description"
                                   className={cn(
-                                    'h-10 bg-white pl-9',
-                                    form.formState.errors.username_or_email &&
-                                      'border-destructive',
+                                    'h-10 bg-white pl-9 transition-all duration-200',
+                                    form.formState.errors.username_or_email
+                                      ? 'border-destructive focus-visible:ring-destructive/30'
+                                      : field.value
+                                        ? 'border-green-500 focus-visible:ring-green-500/30'
+                                        : 'focus-visible:ring-primary/30',
                                   )}
                                   onChange={e => {
                                     field.onChange(e);
@@ -251,6 +272,13 @@ export function LoginPage() {
                                 />
                               </div>
                             </FormControl>
+                            <div
+                              id="email-description"
+                              className="text-muted-foreground mt-1.5 text-xs"
+                            >
+                              Enter the email address associated with your
+                              account
+                            </div>
                             <FormMessage className="mt-1 text-xs" />
                           </FormItem>
                         )}
@@ -262,12 +290,12 @@ export function LoginPage() {
                         render={({ field }) => (
                           <FormItem>
                             <div className="flex items-center justify-between">
-                              <FormLabel className="text-sm">
+                              <FormLabel className="text-sm font-medium">
                                 Password
                               </FormLabel>
                               <Button
                                 variant="link"
-                                className="h-auto p-0 text-xs text-blue-600"
+                                className="text-primary h-auto p-0 text-xs"
                                 disabled={isLoading}
                                 onClick={e => {
                                   e.preventDefault();
@@ -286,10 +314,15 @@ export function LoginPage() {
                                   type={showPassword ? 'text' : 'password'}
                                   placeholder="••••••••"
                                   disabled={isLoading}
+                                  hidePasswordToggle={true}
+                                  aria-describedby="password-description"
                                   className={cn(
-                                    'h-10 bg-white pl-9',
-                                    form.formState.errors.password &&
-                                      'border-destructive',
+                                    'h-10 bg-white pl-9 transition-all duration-200',
+                                    form.formState.errors.password
+                                      ? 'border-destructive focus-visible:ring-destructive/30'
+                                      : field.value
+                                        ? 'border-green-500 focus-visible:ring-green-500/30'
+                                        : 'focus-visible:ring-primary/30',
                                   )}
                                   onChange={e => {
                                     field.onChange(e);
@@ -300,22 +333,28 @@ export function LoginPage() {
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="absolute top-1 right-1 h-8 w-8"
+                                  className="absolute top-1 right-1 h-8 w-8 text-gray-500 hover:text-gray-700"
                                   onClick={() => setShowPassword(!showPassword)}
+                                  aria-label={
+                                    showPassword
+                                      ? 'Hide password'
+                                      : 'Show password'
+                                  }
                                 >
                                   {showPassword ? (
                                     <EyeOff className="h-4 w-4" />
                                   ) : (
                                     <Eye className="h-4 w-4" />
                                   )}
-                                  <span className="sr-only">
-                                    {showPassword
-                                      ? 'Hide password'
-                                      : 'Show password'}
-                                  </span>
                                 </Button>
                               </div>
                             </FormControl>
+                            <div
+                              id="password-description"
+                              className="text-muted-foreground mt-1.5 text-xs"
+                            >
+                              Password must be at least 8 characters long
+                            </div>
                             <FormMessage className="mt-1 text-xs" />
                           </FormItem>
                         )}
@@ -325,7 +364,7 @@ export function LoginPage() {
                         control={form.control}
                         name="rememberMe"
                         render={({ field }) => (
-                          <FormItem className="flex items-center space-y-0 space-x-2">
+                          <FormItem className="flex items-center space-y-0 space-x-2 pt-1">
                             <FormControl>
                               <Checkbox
                                 checked={field.value}
@@ -335,13 +374,14 @@ export function LoginPage() {
                                 }}
                                 disabled={isLoading}
                                 id="remember-me"
+                                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
                             </FormControl>
                             <FormLabel
                               htmlFor="remember-me"
                               className="cursor-pointer text-sm font-normal"
                             >
-                              Remember me
+                              Keep me signed in for 30 days
                             </FormLabel>
                           </FormItem>
                         )}
@@ -349,7 +389,7 @@ export function LoginPage() {
 
                       <Button
                         type="submit"
-                        className="w-full bg-black text-white hover:bg-gray-800"
+                        className="bg-primary hover:bg-primary/90 h-11 w-full text-white transition-all duration-200"
                         disabled={isLoading}
                         onClick={() => {
                           if (isLoading) {
@@ -364,18 +404,47 @@ export function LoginPage() {
                         }}
                       >
                         {isLoading ? (
-                          <>
+                          <motion.div
+                            className="flex items-center justify-center"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Signing in...
-                          </>
+                          </motion.div>
                         ) : (
-                          'Sign In'
+                          <motion.span
+                            className="flex items-center justify-center"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            Sign In
+                          </motion.span>
                         )}
                       </Button>
                     </form>
                   </Form>
+
+                  <div className="mt-6 text-center">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute w-full border-t border-gray-200" />
+                      <span className="relative bg-white px-3 text-xs text-gray-500">
+                        SECURE LOGIN
+                      </span>
+                    </div>
+
+                    <p className="text-muted-foreground mt-4 text-sm">
+                      Access your pharmacy management dashboard with confidence
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="mt-6 text-center">
+              <p className="text-muted-foreground text-xs">
+                WellPharm Desktop v1.2.0 © 2023 Phermo Systems Inc.
+              </p>
             </motion.div>
           </motion.div>
         </div>
@@ -536,6 +605,7 @@ export function LoginPage() {
                 </div>
               </div>
 
+              {/* Inside the dashboard preview, replace the simplified chart representation */}
               <div className="md:col-span-2">
                 <div className="rounded-lg bg-blue-50 p-4">
                   <div className="mb-2 flex items-center justify-between">
@@ -561,36 +631,13 @@ export function LoginPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 h-32">
-                    {/* Simplified chart representation */}
-                    <div className="flex h-full items-end justify-between px-2">
-                      {[...Array.from({ length: 12 }).keys()].map(i => (
-                        <div key={i} className="flex flex-col items-center">
-                          <div
-                            className="w-2 rounded-t bg-blue-500"
-                            style={{ height: `${Math.random() * 70 + 20}%` }}
-                          />
-                          <div className="mt-1 text-[10px] font-medium text-gray-500">
-                            {
-                              [
-                                'Jan',
-                                'Feb',
-                                'Mar',
-                                'Apr',
-                                'May',
-                                'Jun',
-                                'Jul',
-                                'Aug',
-                                'Sep',
-                                'Oct',
-                                'Nov',
-                                'Dec',
-                              ][i]
-                            }
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="mt-4">
+                    <RevenueExpenseChart
+                      data={revenueExpenseData}
+                      isLoading={isLoadingRevenueData}
+                      isError={isRevenueError}
+                      height={130}
+                    />
                   </div>
                 </div>
               </div>
