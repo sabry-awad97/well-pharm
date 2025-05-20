@@ -7,16 +7,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { useTopSellingMedicines } from '@/api/medicine';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
@@ -30,7 +24,15 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 import { createComponentLogger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { Loader2, Pill } from 'lucide-react';
+import {
+  BarChart3,
+  Eye,
+  EyeOff,
+  Loader2,
+  Mail,
+  Pill,
+  User,
+} from 'lucide-react';
 
 // Create a component-specific logger
 const log = createComponentLogger('LoginPage');
@@ -51,6 +53,7 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const [showPassword, setShowPassword] = useState(false);
 
   // Log component initialization
   useEffect(() => {
@@ -152,6 +155,13 @@ export function LoginPage() {
     }
   }, [form.formState.errors]);
 
+  // Fetch top selling medicines data for dashboard preview
+  const { data: topSellingMedicines, isLoading: isLoadingMedicines } =
+    useTopSellingMedicines('month', 4, {
+      // Set a longer stale time for login page to reduce unnecessary fetches
+      staleTime: 15 * 60 * 1000, // 15 minutes
+    });
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -177,186 +187,434 @@ export function LoginPage() {
   };
 
   return (
-    <div className="bg-background flex min-h-screen flex-col items-center justify-center p-4">
-      <motion.div
-        className="w-full max-w-md"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <motion.div className="mb-8 text-center" variants={itemVariants}>
-          <div className="mb-4 flex justify-center">
-            <div className="text-primary flex items-center gap-2">
-              <Pill className="h-8 w-8" />
-              <span className="text-2xl font-bold">WellPharm</span>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-muted-foreground mt-1">
-            Sign in to your account to continue
-          </p>
-        </motion.div>
+    <div className="flex min-h-screen w-full overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-purple-200">
+      <div className="flex w-full flex-col lg:flex-row">
+        {/* Left side - Login form */}
+        <div className="flex w-full items-center justify-center p-6 lg:w-1/2">
+          <motion.div
+            className="w-full max-w-md"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div className="mb-8 text-center" variants={itemVariants}>
+              <div className="mb-6 flex justify-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                  <Pill className="h-6 w-6 text-gray-700" />
+                </div>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight">Sign In</h1>
+            </motion.div>
 
-        <motion.div variants={itemVariants}>
-          <Card className="border-muted bg-card shadow-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl">Sign In</CardTitle>
-              <CardDescription>
-                Enter your credentials to access your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-4"
-                >
-                  <Alert variant="destructive" className="py-2 text-sm">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                </motion.div>
-              )}
-
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="username_or_email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm">
-                          Username or Email
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="Enter your username or email"
-                            disabled={isLoading}
-                            className={cn(
-                              'h-9',
-                              form.formState.errors.username_or_email &&
-                                'border-destructive',
-                            )}
-                            onChange={e => {
-                              field.onChange(e);
-                              log.debug('Username/email field updated');
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm">Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="password"
-                            placeholder="Enter your password"
-                            disabled={isLoading}
-                            className={cn(
-                              'h-9',
-                              form.formState.errors.password &&
-                                'border-destructive',
-                            )}
-                            onChange={e => {
-                              field.onChange(e);
-                              log.debug('Password field updated');
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex items-center justify-between">
-                    <FormField
-                      control={form.control}
-                      name="rememberMe"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center space-y-0 space-x-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={checked => {
-                                field.onChange(checked);
-                                log.debug('Remember me toggled', { checked });
-                              }}
-                              disabled={isLoading}
-                              id="remember-me"
-                            />
-                          </FormControl>
-                          <FormLabel
-                            htmlFor="remember-me"
-                            className="cursor-pointer text-sm font-normal"
-                          >
-                            Remember me
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button
-                      variant="link"
-                      className="h-auto p-0 text-sm"
-                      disabled={isLoading}
-                      onClick={e => {
-                        e.preventDefault();
-                        log.info('Forgot password link clicked');
-                        // Handle forgot password
-                      }}
+            <motion.div variants={itemVariants}>
+              <Card className="border-none bg-transparent shadow-none">
+                <CardContent className="p-0">
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-4"
                     >
-                      Forgot password?
-                    </Button>
+                      <Alert variant="destructive" className="py-2 text-sm">
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    </motion.div>
+                  )}
+
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit(onSubmit)}
+                      className="space-y-4"
+                    >
+                      <FormField
+                        control={form.control}
+                        name="username_or_email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm">Email</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Mail className="absolute top-2.5 left-3 h-4 w-4 text-gray-400" />
+                                <Input
+                                  {...field}
+                                  placeholder="Enter your email"
+                                  disabled={isLoading}
+                                  className={cn(
+                                    'h-10 bg-white pl-9',
+                                    form.formState.errors.username_or_email &&
+                                      'border-destructive',
+                                  )}
+                                  onChange={e => {
+                                    field.onChange(e);
+                                    log.debug('Username/email field updated');
+                                  }}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="mt-1 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-center justify-between">
+                              <FormLabel className="text-sm">
+                                Password
+                              </FormLabel>
+                              <Button
+                                variant="link"
+                                className="h-auto p-0 text-xs text-blue-600"
+                                disabled={isLoading}
+                                onClick={e => {
+                                  e.preventDefault();
+                                  log.info('Forgot password link clicked');
+                                  // Handle forgot password
+                                }}
+                              >
+                                Forgot Password?
+                              </Button>
+                            </div>
+                            <FormControl>
+                              <div className="relative">
+                                <User className="absolute top-2.5 left-3 h-4 w-4 text-gray-400" />
+                                <Input
+                                  {...field}
+                                  type={showPassword ? 'text' : 'password'}
+                                  placeholder="••••••••"
+                                  disabled={isLoading}
+                                  className={cn(
+                                    'h-10 bg-white pl-9',
+                                    form.formState.errors.password &&
+                                      'border-destructive',
+                                  )}
+                                  onChange={e => {
+                                    field.onChange(e);
+                                    log.debug('Password field updated');
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute top-1 right-1 h-8 w-8"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                >
+                                  {showPassword ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                  <span className="sr-only">
+                                    {showPassword
+                                      ? 'Hide password'
+                                      : 'Show password'}
+                                  </span>
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormMessage className="mt-1 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="rememberMe"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-y-0 space-x-2">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={checked => {
+                                  field.onChange(checked);
+                                  log.debug('Remember me toggled', { checked });
+                                }}
+                                disabled={isLoading}
+                                id="remember-me"
+                              />
+                            </FormControl>
+                            <FormLabel
+                              htmlFor="remember-me"
+                              className="cursor-pointer text-sm font-normal"
+                            >
+                              Remember me
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button
+                        type="submit"
+                        className="w-full bg-black text-white hover:bg-gray-800"
+                        disabled={isLoading}
+                        onClick={() => {
+                          if (isLoading) {
+                            log.debug(
+                              'Submit button clicked while loading, ignoring',
+                            );
+                          } else {
+                            log.debug(
+                              'Submit button clicked, form will be validated',
+                            );
+                          }
+                        }}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          'Sign In'
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        {/* Right side - Dashboard preview */}
+        <div className="hidden bg-white p-8 lg:flex lg:w-1/2 lg:items-center lg:justify-center">
+          <div className="max-w-2xl rounded-xl bg-white p-8 shadow-lg">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="rounded-md bg-blue-100 p-2">
+                <Pill className="h-5 w-5 text-blue-600" />
+              </div>
+              <span className="text-lg font-medium">Phermo</span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg bg-blue-50 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium">
+                      Graph Report Today
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <title>""</title>
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="19" cy="12" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="mt-4 flex h-32 items-end justify-center gap-4">
+                  <div className="flex h-full flex-col justify-end">
+                    <div
+                      className="mb-1 w-10 rounded-t bg-green-500"
+                      style={{ height: '20%' }}
+                    />
+                    <div
+                      className="mb-1 w-10 rounded-t bg-orange-500"
+                      style={{ height: '30%' }}
+                    />
+                    <div
+                      className="w-10 rounded-t bg-blue-500"
+                      style={{ height: '40%' }}
+                    />
+                    <div className="mt-2 text-center text-xs font-medium">
+                      Purchases
+                    </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}
-                    onClick={() => {
-                      if (isLoading) {
-                        log.debug(
-                          'Submit button clicked while loading, ignoring',
-                        );
-                      } else {
-                        log.debug(
-                          'Submit button clicked, form will be validated',
-                        );
-                      }
-                    }}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      'Sign In'
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-            <CardFooter className="flex justify-center border-t p-4">
-              <p className="text-muted-foreground text-sm">
-                Pharmacy Management System
+                  <div className="flex h-full flex-col justify-end">
+                    <div
+                      className="mb-1 w-10 rounded-t bg-green-500"
+                      style={{ height: '15%' }}
+                    />
+                    <div
+                      className="mb-1 w-10 rounded-t bg-orange-500"
+                      style={{ height: '25%' }}
+                    />
+                    <div
+                      className="w-10 rounded-t bg-blue-500"
+                      style={{ height: '50%' }}
+                    />
+                    <div className="mt-2 text-center text-xs font-medium">
+                      Suppliers
+                    </div>
+                  </div>
+
+                  <div className="flex h-full flex-col justify-end">
+                    <div
+                      className="mb-1 w-10 rounded-t bg-green-500"
+                      style={{ height: '25%' }}
+                    />
+                    <div
+                      className="mb-1 w-10 rounded-t bg-orange-500"
+                      style={{ height: '20%' }}
+                    />
+                    <div
+                      className="w-10 rounded-t bg-blue-500"
+                      style={{ height: '45%' }}
+                    />
+                    <div className="mt-2 text-center text-xs font-medium">
+                      Sales
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Pill className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium">
+                      Top Selling Medicine
+                    </span>
+                  </div>
+                  <div className="text-xs font-medium text-gray-500">
+                    This Month
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {isLoadingMedicines
+                    ? // Loading state
+                      [...Array(4).keys()].map(k => (
+                        <div key={`skeleton-${k}`}>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="h-3 w-24 animate-pulse rounded bg-gray-200" />
+                            <span className="h-3 w-8 animate-pulse rounded bg-gray-200" />
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div className="h-full w-0 animate-pulse rounded-full bg-gray-300" />
+                          </div>
+                        </div>
+                      ))
+                    : // Render actual data
+                      topSellingMedicines?.map((medicine, index) => (
+                        <div key={medicine.id}>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-xs font-medium">
+                              {medicine.name}
+                            </span>
+                            <span className="text-xs font-medium">
+                              {medicine.percentageShare}%
+                            </span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className={`h-full rounded-full ${
+                                index === 0
+                                  ? 'bg-blue-500'
+                                  : index === 1
+                                    ? 'bg-green-500'
+                                    : index === 2
+                                      ? 'bg-orange-500'
+                                      : 'bg-purple-500'
+                              }`}
+                              style={{ width: `${medicine.percentageShare}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <div className="rounded-lg bg-blue-50 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium">
+                        Over All Revenue vs Expense
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium text-gray-500">
+                      Monthly
+                    </div>
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-blue-500" />
+                      <span className="text-xs font-medium">Revenue</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-orange-500" />
+                      <span className="text-xs font-medium">Expense</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 h-32">
+                    {/* Simplified chart representation */}
+                    <div className="flex h-full items-end justify-between px-2">
+                      {[...Array.from({ length: 12 }).keys()].map(i => (
+                        <div key={i} className="flex flex-col items-center">
+                          <div
+                            className="w-2 rounded-t bg-blue-500"
+                            style={{ height: `${Math.random() * 70 + 20}%` }}
+                          />
+                          <div className="mt-1 text-[10px] font-medium text-gray-500">
+                            {
+                              [
+                                'Jan',
+                                'Feb',
+                                'Mar',
+                                'Apr',
+                                'May',
+                                'Jun',
+                                'Jul',
+                                'Aug',
+                                'Sep',
+                                'Oct',
+                                'Nov',
+                                'Dec',
+                              ][i]
+                            }
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <h2 className="text-xl font-bold">Welcome Back Phermo</h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Securely access your Phermo Pharmacy Management account. Sign in
+                to keep your pharmacy running efficiently.
               </p>
-            </CardFooter>
-          </Card>
-        </motion.div>
-      </motion.div>
+
+              <div className="mt-4 flex justify-center space-x-1">
+                <div className="h-1.5 w-6 rounded-full bg-blue-500" />
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-200" />
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-200" />
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-200" />
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-200" />
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-200" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
