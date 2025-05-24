@@ -170,6 +170,30 @@ export async function getProductById(id: string): Promise<Product | null> {
 }
 
 /**
+ * Fetches all products from the database
+ *
+ * @returns Promise with array of all products
+ */
+export async function fetchAllProducts(): Promise<Product[]> {
+  productAPILog.info('Fetching all products');
+
+  try {
+    // Call the Tauri backend command
+    const response = await invoke<unknown>('get_all_products');
+
+    // Validate the response with Zod schema
+    const validatedProducts = z.array(ProductSchema).parse(response);
+
+    return validatedProducts;
+  } catch (error) {
+    productAPILog.error('Failed to fetch all products', error);
+    throw new Error(
+      `Failed to fetch all products: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/**
  * Searches products by query string
  *
  * @param query Search query
@@ -247,13 +271,83 @@ export function useProductSearch(query: string) {
 /**
  * React Query hook for filtering products
  */
-export function useProductFilter(params: {
+// Enhanced filter parameters
+export interface ProductFilterParams {
   category?: string;
   manufacturer?: string;
-}) {
+  dateFrom?: string;
+  dateTo?: string;
+  priceMin?: string;
+  priceMax?: string;
+}
+
+/**
+ * Fetches products based on filter criteria
+ */
+export function useProductFilter(params: ProductFilterParams) {
+  const queryKey = ['products', 'filter', params];
+
   return useQuery({
-    queryKey: ['products', 'filter', params],
-    queryFn: () => filterProducts(params),
+    queryKey,
+    queryFn: async () => {
+      productAPILog.info('Filtering products', params);
+
+      try {
+        // Fetch all products from the backend
+        const allProducts = await fetchAllProducts();
+
+        // Apply filters
+        return allProducts.filter(product => {
+          // Category filter (supports comma-separated multi-select)
+          if (params.category && params.category.length > 0) {
+            const categories = params.category.split(',');
+            if (!categories.includes(product.category)) {
+              return false;
+            }
+          }
+
+          // Manufacturer filter (supports comma-separated multi-select)
+          if (params.manufacturer && params.manufacturer.length > 0) {
+            const manufacturers = params.manufacturer.split(',');
+            if (!manufacturers.includes(product.manufacturer)) {
+              return false;
+            }
+          }
+
+          // Date range filter
+          if (params.dateFrom || params.dateTo) {
+            const productDate = new Date(product.updatedAt);
+
+            if (params.dateFrom && new Date(params.dateFrom) > productDate) {
+              return false;
+            }
+
+            if (params.dateTo && new Date(params.dateTo) < productDate) {
+              return false;
+            }
+          }
+
+          // Price range filter (assuming products have a price field)
+          if (params.priceMin || params.priceMax) {
+            // This is a mock implementation - adjust based on your actual data model
+            const price = product.price || 0;
+
+            if (params.priceMin && Number(params.priceMin) > price) {
+              return false;
+            }
+
+            if (params.priceMax && Number(params.priceMax) < price) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+      } catch (error) {
+        productAPILog.error('Error filtering products', error);
+        throw error;
+      }
+    },
   });
 }
 

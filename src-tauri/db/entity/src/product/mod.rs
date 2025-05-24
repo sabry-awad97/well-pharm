@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::utils::db_id::DbId;
 use crate::utils::db_time::DbTime;
 use async_trait::async_trait;
@@ -61,4 +63,16 @@ pub enum ProductCategory {
     MedicalDevice,
     #[sea_orm(string_value = "other")]
     Other,
+}
+
+impl fmt::Display for ProductCategory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ProductCategory::Prescription => write!(f, "Prescription"),
+            ProductCategory::OTC => write!(f, "OTC"),
+            ProductCategory::Supplement => write!(f, "Supplement"),
+            ProductCategory::MedicalDevice => write!(f, "Medical Device"),
+            ProductCategory::Other => write!(f, "Other"),
+        }
+    }
 }

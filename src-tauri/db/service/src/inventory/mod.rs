@@ -1,8 +1,13 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use db_entity::{Product, ProductModel};
-use sea_orm::{DatabaseConnection, EntityTrait, QueryOrder};
+use chrono::{DateTime, NaiveDate, Utc};
+use db_entity::{Inventory, InventoryModel, Product, ProductModel};
+use rust_decimal::prelude::ToPrimitive; // Add this import for Decimal conversion
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder, Set,
+};
 use serde::Serialize;
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -24,6 +29,9 @@ pub struct InventoryItem {
     pub unit: Option<String>,
     pub notes: Option<String>,
     pub expiry_date: Option<String>,
+    pub purchase_price: f64,
+    pub selling_price: f64,
+    pub price_updated_at: DateTime<Utc>,
 }
 
 /// Repository trait for inventory operations
@@ -60,6 +68,29 @@ pub trait InventoryRepository: Send + Sync {
         transaction_type: &str,
         notes: Option<String>,
     ) -> Result<(), ServiceError>;
+
+    /// Update product prices
+    async fn update_prices(
+        &self,
+        product_id: Uuid,
+        purchase_price: Option<f64>,
+        selling_price: Option<f64>,
+    ) -> Result<InventoryItem, ServiceError>;
+
+    /// Create or update inventory item
+    async fn create_or_update_inventory_item(
+        &self,
+        product_id: Uuid,
+        stock_level: u32,
+        threshold: u32,
+        supplier: Option<String>,
+        reorder_amount: Option<u32>,
+        unit: Option<String>,
+        notes: Option<String>,
+        expiry_date: Option<String>,
+        purchase_price: f64,
+        selling_price: f64,
+    ) -> Result<InventoryItem, ServiceError>;
 }
 
 /// Sea-ORM implementation of InventoryRepository
@@ -73,42 +104,70 @@ impl SeaOrmInventoryRepository {
         Self { db }
     }
 
-    /// Helper method to convert a product model to an inventory item
-    async fn product_to_inventory_item(
+    /// Helper method to convert a product model and inventory model to an inventory item
+    async fn to_inventory_item(
         &self,
         product: &ProductModel,
+        inventory: Option<&InventoryModel>,
     ) -> Result<InventoryItem, ServiceError> {
-        // For now, we'll use a simple approach where inventory data is stored
-        // in the product's metadata. In a real implementation, you would have
-        // a separate inventory table with foreign keys to products.
+        let inventory = match inventory {
+            Some(inv) => inv,
+            None => {
+                // Return default values if no inventory record exists
+                return Ok(InventoryItem {
+                    id: product.id,
+                    name: product.name.clone(),
+                    stock_level: 0,
+                    threshold: 10,
+                    category: Some(product.category.to_string()),
+                    supplier: None,
+                    last_ordered: None,
+                    stock_history: None,
+                    reorder_amount: None,
+                    unit: None,
+                    notes: None,
+                    expiry_date: None,
+                    purchase_price: 0.0,
+                    selling_price: 0.0,
+                    price_updated_at: Utc::now(),
+                });
+            }
+        };
 
-        // Default values if metadata doesn't exist
-        let stock_level = 0;
-        let threshold = 10;
-        let supplier = None;
-        let last_ordered = None;
-        let stock_history = None;
-        let reorder_amount = None;
-        let unit = None;
-        let notes = None;
-        let expiry_date = None;
+        // Convert stock history JSON to Vec<u32> if it exists
+        let stock_history = inventory.stock_history.as_ref().and_then(|json| {
+            json.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|n| n as u32))
+                    .collect::<Vec<u32>>()
+            })
+        });
 
-        // Extract category as string
-        let category = Some(format!("{:?}", product.category));
+        // Format expiry date as string if it exists
+        let expiry_date = inventory
+            .expiry_date
+            .map(|date| date.format("%Y-%m-%d").to_string());
+
+        // Convert decimal to f64 for prices using ToPrimitive trait
+        let purchase_price = inventory.purchase_price.to_f64().unwrap_or(0.0);
+        let selling_price = inventory.selling_price.to_f64().unwrap_or(0.0);
 
         Ok(InventoryItem {
             id: product.id,
             name: product.name.clone(),
-            stock_level,
-            threshold,
-            category,
-            supplier,
-            last_ordered,
+            stock_level: inventory.stock_level,
+            threshold: inventory.threshold,
+            category: Some(product.category.to_string()), // Fix: Use to_string() instead of format!
+            supplier: inventory.supplier.clone(),
+            last_ordered: inventory.last_ordered,
             stock_history,
-            reorder_amount,
-            unit,
-            notes,
+            reorder_amount: inventory.reorder_amount,
+            unit: inventory.unit.clone(),
+            notes: inventory.notes.clone(),
             expiry_date,
+            purchase_price,
+            selling_price,
+            price_updated_at: inventory.price_updated_at,
         })
     }
 }
@@ -116,175 +175,40 @@ impl SeaOrmInventoryRepository {
 #[async_trait]
 impl InventoryRepository for SeaOrmInventoryRepository {
     async fn get_low_stock_items(&self) -> Result<Vec<InventoryItem>, ServiceError> {
-        // Instead of querying the database, return hardcoded mock data
-        // This allows testing the frontend without a fully implemented database schema
+        // Get all inventory items where stock_level <= threshold
+        let low_stock_inventory = Inventory::find()
+            .filter(
+                db_entity::inventory::Column::StockLevel
+                    .lte(db_entity::inventory::Column::Threshold),
+            )
+            .all(&*self.db)
+            .await?;
 
-        // Create a vector of mock inventory items with various stock levels and properties
-        let mock_items = vec![
-            InventoryItem {
-                id: Uuid::parse_str("a1b2c3d4-e5f6-7890-1234-567890abcdef").unwrap(),
-                name: "Insulin Pen (Type A)".to_string(),
-                stock_level: 5,
-                threshold: 20,
-                category: Some("Prescription".to_string()),
-                supplier: Some("BioGen Pharma".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(10)),
-                stock_history: Some(vec![30, 25, 20, 15, 10, 5]),
-                reorder_amount: Some(50),
-                unit: Some("pens".to_string()),
-                notes: Some("Critical item, reorder immediately".to_string()),
-                expiry_date: Some("2024-11-30".to_string()),
-            },
-            InventoryItem {
-                id: Uuid::parse_str("b2c3d4e5-f6a7-8901-2345-67890abcdef0").unwrap(),
-                name: "Children's Cough Syrup".to_string(),
-                stock_level: 10,
-                threshold: 30,
-                category: Some("OTC".to_string()),
-                supplier: Some("KidCare Health".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(5)),
-                stock_history: Some(vec![50, 45, 35, 20, 10]),
-                reorder_amount: Some(60),
-                unit: Some("bottles".to_string()),
-                notes: Some("Seasonal demand increasing".to_string()),
-                expiry_date: Some("2025-09-15".to_string()),
-            },
-            InventoryItem {
-                id: Uuid::parse_str("c3d4e5f6-a7b8-9012-3456-7890abcdef01").unwrap(),
-                name: "Band-Aids (Assorted)".to_string(),
-                stock_level: 25,
-                threshold: 50,
-                category: Some("First Aid".to_string()),
-                supplier: Some("MediSupply Co.".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(20)),
-                stock_history: Some(vec![100, 80, 60, 40, 25]),
-                reorder_amount: Some(100),
-                unit: Some("boxes".to_string()),
-                notes: None,
-                expiry_date: None, // Non-medicinal item
-            },
-            InventoryItem {
-                id: Uuid::parse_str("d4e5f6a7-b8c9-0123-4567-890abcdef012").unwrap(),
-                name: "Vitamin D3 Capsules".to_string(),
-                stock_level: 18,
-                threshold: 40,
-                category: Some("Supplements".to_string()),
-                supplier: Some("NutriVita Labs".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(15)),
-                stock_history: Some(vec![60, 50, 40, 30, 18]),
-                reorder_amount: Some(80),
-                unit: Some("bottles".to_string()),
-                notes: Some("Check for bulk order discounts".to_string()),
-                expiry_date: Some("2026-01-31".to_string()),
-            },
-            InventoryItem {
-                id: Uuid::parse_str("e5f6a7b8-c9d0-1234-5678-90abcdef0123").unwrap(),
-                name: "Hydrocortisone Cream 1%".to_string(),
-                stock_level: 7,
-                threshold: 15,
-                category: Some("Topical".to_string()),
-                supplier: Some("DermSolutions".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(3)),
-                stock_history: Some(vec![20, 15, 10, 7]),
-                reorder_amount: Some(30),
-                unit: Some("tubes".to_string()),
-                notes: None,
-                expiry_date: Some("2025-07-22".to_string()),
-            },
-             InventoryItem {
-                id: Uuid::parse_str("f6a7b8c9-d0e1-2345-6789-0abcdef01234").unwrap(),
-                name: "Antacid Tablets (Chewable)".to_string(),
-                stock_level: 12,
-                threshold: 25,
-                category: Some("OTC".to_string()),
-                supplier: Some("Digestive Aids Inc.".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(8)),
-                stock_history: Some(vec![40, 35, 28, 20, 12]),
-                reorder_amount: Some(50),
-                unit: Some("bottles".to_string()),
-                notes: None,
-                expiry_date: Some("2025-05-10".to_string()),
-            },
-             InventoryItem {
-                id: Uuid::parse_str("a7b8c9d0-e1f2-3456-7890-abcdef012345").unwrap(),
-                name: "Eye Drops (Lubricating)".to_string(),
-                stock_level: 9,
-                threshold: 20,
-                category: Some("Eye Care".to_string()),
-                supplier: Some("Vision Pharma".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(6)),
-                stock_history: Some(vec![30, 25, 18, 12, 9]),
-                reorder_amount: Some(40),
-                unit: Some("bottles".to_string()),
-                notes: Some("Popular during allergy season".to_string()),
-                expiry_date: Some("2024-10-01".to_string()),
-            },
-            InventoryItem {
-                id: Uuid::parse_str("b8c9d0e1-f2a3-4567-8901-bcdef0123456").unwrap(),
-                name: "Pain Relief Gel".to_string(),
-                stock_level: 15,
-                threshold: 30,
-                category: Some("Topical".to_string()),
-                supplier: Some("MediSupply Co.".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(12)),
-                stock_history: Some(vec![50, 40, 30, 20, 15]),
-                reorder_amount: Some(50),
-                unit: Some("tubes".to_string()),
-                notes: None,
-                expiry_date: Some("2025-08-01".to_string()),
-            },
-            InventoryItem {
-                id: Uuid::parse_str("c9d0e1f2-a3b4-5678-9012-cdef01234567").unwrap(),
-                name: "Allergy Relief Tablets (Non-drowsy)".to_string(),
-                stock_level: 6,
-                threshold: 20,
-                category: Some("OTC".to_string()),
-                supplier: Some("AllCare Pharmaceuticals".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(4)),
-                stock_history: Some(vec![30, 25, 15, 10, 6]),
-                reorder_amount: Some(40),
-                unit: Some("packs".to_string()),
-                notes: Some("High demand during spring".to_string()),
-                expiry_date: Some("2025-04-18".to_string()),
-            },
-            InventoryItem {
-                id: Uuid::parse_str("d0e1f2a3-b4c5-6789-0123-def012345678").unwrap(),
-                name: "Blood Pressure Monitor".to_string(),
-                stock_level: 3,
-                threshold: 10,
-                category: Some("Medical Devices".to_string()),
-                supplier: Some("HealthTech Solutions".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(30)),
-                stock_history: Some(vec![15, 12, 8, 5, 3]),
-                reorder_amount: Some(20),
-                unit: Some("units".to_string()),
-                notes: None,
-                expiry_date: None, // Device
-            },
-            InventoryItem {
-                id: Uuid::parse_str("e1f2a3b4-c5d6-7890-1234-ef0123456789").unwrap(),
-                name: "Probiotic Capsules".to_string(),
-                stock_level: 11,
-                threshold: 25,
-                category: Some("Supplements".to_string()),
-                supplier: Some("NutriVita Labs".to_string()),
-                last_ordered: Some(Utc::now() - chrono::Duration::days(9)),
-                stock_history: Some(vec![35, 30, 22, 15, 11]),
-                reorder_amount: Some(50),
-                unit: Some("bottles".to_string()),
-                notes: None,
-                expiry_date: Some("2025-12-31".to_string()),
-            },
-        ];
+        // Get the associated products
+        let mut result = Vec::new();
+        for inventory in low_stock_inventory {
+            let product = Product::find_by_id(inventory.product_id)
+                .one(&*self.db)
+                .await?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!(
+                        "Product with ID {} not found",
+                        inventory.product_id
+                    ))
+                })?;
 
-        Ok(mock_items)
+            let item = self.to_inventory_item(&product, Some(&inventory)).await?;
+            result.push(item);
+        }
+
+        Ok(result)
     }
 
     async fn update_stock_level(
         &self,
         product_id: Uuid,
         new_level: u32,
-        _record_history: bool,
+        record_history: bool,
     ) -> Result<InventoryItem, ServiceError> {
         // Find the product
         let product = Product::find_by_id(product_id)
@@ -294,31 +218,61 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 ServiceError::NotFound(format!("Product with ID {} not found", product_id))
             })?;
 
-        // Convert to inventory item
-        let mut item = self.product_to_inventory_item(&product).await?;
+        // Find or create inventory record
+        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+
+        let mut inventory_model = match inventory {
+            Some(model) => model.into_active_model(),
+            None => {
+                // Create new inventory record if it doesn't exist
+                let mut new_model = db_entity::inventory::ActiveModel::default();
+                new_model.product_id = Set(product_id);
+                new_model.stock_level = Set(0); // Will be updated below
+                new_model.threshold = Set(10); // Default threshold
+                new_model.created_at = Set(Utc::now());
+                new_model.updated_at = Set(Utc::now());
+                new_model.price_updated_at = Set(Utc::now());
+                new_model.purchase_price = Set(0.0.into());
+                new_model.selling_price = Set(0.0.into());
+                new_model.insert(&*self.db).await?.into_active_model()
+            }
+        };
 
         // Update stock level
-        item.stock_level = new_level;
+        inventory_model.stock_level = Set(new_level);
+        inventory_model.updated_at = Set(Utc::now());
 
-        // In a real implementation, you would update the inventory table
-        // and optionally record in history table if record_history is true
+        // Update stock history if requested
+        if record_history {
+            let current_model = inventory_model.clone().try_into_model()?;
+            let mut history = match current_model.stock_history {
+                Some(json) => {
+                    let mut history = json.as_array().map(|arr| arr.clone()).unwrap_or_default();
+                    history.push(new_level.into());
+                    json!(history)
+                }
+                None => {
+                    json!([new_level])
+                }
+            };
 
-        Ok(item)
+            inventory_model.stock_history = Set(Some(history));
+        }
+
+        // Save changes
+        let updated_inventory = inventory_model.update(&*self.db).await?;
+
+        // Return updated inventory item
+        self.to_inventory_item(&product, Some(&updated_inventory))
+            .await
     }
 
     async fn get_stock_level(&self, product_id: Uuid) -> Result<u32, ServiceError> {
-        // Find the product
-        let product = Product::find_by_id(product_id)
-            .one(&*self.db)
-            .await?
-            .ok_or_else(|| {
-                ServiceError::NotFound(format!("Product with ID {} not found", product_id))
-            })?;
+        // Find the inventory record
+        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
 
-        // Get inventory item
-        let item = self.product_to_inventory_item(&product).await?;
-
-        Ok(item.stock_level)
+        // Return stock level or 0 if no inventory record exists
+        Ok(inventory.map(|i| i.stock_level).unwrap_or(0))
     }
 
     async fn get_inventory_item(
@@ -331,8 +285,11 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             None => return Ok(None),
         };
 
+        // Find the inventory record
+        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+
         // Convert to inventory item
-        let item = self.product_to_inventory_item(&product).await?;
+        let item = self.to_inventory_item(&product, inventory.as_ref()).await?;
 
         Ok(Some(item))
     }
@@ -344,10 +301,20 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             .all(&*self.db)
             .await?;
 
+        // Get all inventory records
+        let inventory_records = Inventory::find().all(&*self.db).await?;
+
+        // Create a map of product_id to inventory record for quick lookup
+        let inventory_map: std::collections::HashMap<Uuid, InventoryModel> = inventory_records
+            .into_iter()
+            .map(|inv| (inv.product_id, inv))
+            .collect();
+
         // Convert to inventory items
         let mut items = Vec::new();
         for product in products {
-            let item = self.product_to_inventory_item(&product).await?;
+            let inventory = inventory_map.get(&product.id);
+            let item = self.to_inventory_item(&product, inventory).await?;
             items.push(item);
         }
 
@@ -359,7 +326,7 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         product_id: Uuid,
         quantity: i32,
         transaction_type: &str,
-        _notes: Option<String>,
+        notes: Option<String>,
     ) -> Result<(), ServiceError> {
         // Find the product
         let product = Product::find_by_id(product_id)
@@ -369,16 +336,38 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                 ServiceError::NotFound(format!("Product with ID {} not found", product_id))
             })?;
 
-        // Get current inventory item
-        let mut item = self.product_to_inventory_item(&product).await?;
+        // Find or create inventory record
+        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+
+        let mut inventory_model = match inventory {
+            Some(model) => model.into_active_model(),
+            None => {
+                // Create new inventory record if it doesn't exist
+                let new_model = create_new_inventory_model(product_id).await;
+                new_model.insert(&*self.db).await?.into_active_model()
+            }
+        };
+
+        // Get current stock level
+        let current_stock = inventory_model.stock_level.clone().unwrap_or(0);
 
         // Update stock level based on transaction type
-        match transaction_type {
+        let new_stock = match transaction_type {
             "purchase" | "adjustment_add" => {
-                item.stock_level = item.stock_level.saturating_add(quantity as u32);
+                if quantity < 0 {
+                    return Err(ServiceError::InvalidValue(
+                        "Quantity must be positive for purchase or add adjustment".to_string(),
+                    ));
+                }
+                current_stock.saturating_add(quantity as u32)
             }
             "sale" | "adjustment_subtract" => {
-                item.stock_level = item.stock_level.saturating_sub(quantity as u32);
+                if quantity < 0 {
+                    return Err(ServiceError::InvalidValue(
+                        "Quantity must be positive for sale or subtract adjustment".to_string(),
+                    ));
+                }
+                current_stock.saturating_sub(quantity as u32)
             }
             _ => {
                 return Err(ServiceError::InvalidValue(format!(
@@ -386,13 +375,177 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                     transaction_type
                 )));
             }
+        };
+
+        // Update stock level
+        inventory_model.stock_level = Set(new_stock);
+
+        // Update last_ordered if this is a purchase
+        if transaction_type == "purchase" {
+            inventory_model.last_ordered = Set(Some(Utc::now()));
         }
 
-        // In a real implementation, you would:
-        // 1. Update the inventory table with new stock level
-        // 2. Record the transaction in a transaction history table
-        // 3. Update the stock_history array
+        // Update notes if provided
+        if let Some(note) = notes {
+            inventory_model.notes = Set(Some(note));
+        }
+
+        // Update stock history
+        let current_model = inventory_model.clone().try_into_model()?;
+        let mut history = match current_model.stock_history {
+            Some(json) => {
+                let mut history = json.as_array().map(|arr| arr.clone()).unwrap_or_default();
+                history.push(new_stock.into());
+                json!(history)
+            }
+            None => {
+                json!([new_stock])
+            }
+        };
+
+        inventory_model.stock_history = Set(Some(history));
+        inventory_model.updated_at = Set(Utc::now());
+
+        // Save changes
+        inventory_model.update(&*self.db).await?;
 
         Ok(())
     }
+
+    async fn update_prices(
+        &self,
+        product_id: Uuid,
+        purchase_price: Option<f64>,
+        selling_price: Option<f64>,
+    ) -> Result<InventoryItem, ServiceError> {
+        // Find the product
+        let product = Product::find_by_id(product_id)
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Product with ID {} not found", product_id))
+            })?;
+
+        // Find or create inventory record
+        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+
+        let mut inventory_model = match inventory {
+            Some(model) => model.into_active_model(),
+            None => {
+                // Create new inventory record if it doesn't exist
+                let new_model = create_new_inventory_model(product_id).await;
+                new_model.insert(&*self.db).await?.into_active_model()
+            }
+        };
+
+        // Update prices if provided
+        if let Some(price) = purchase_price {
+            inventory_model.purchase_price = Set(price.into());
+        }
+
+        if let Some(price) = selling_price {
+            inventory_model.selling_price = Set(price.into());
+        }
+
+        // Update price_updated_at and updated_at
+        if purchase_price.is_some() || selling_price.is_some() {
+            inventory_model.price_updated_at = Set(Utc::now());
+            inventory_model.updated_at = Set(Utc::now());
+        }
+
+        // Save changes
+        let updated_inventory = inventory_model.update(&*self.db).await?;
+
+        // Return updated inventory item
+        self.to_inventory_item(&product, Some(&updated_inventory))
+            .await
+    }
+
+    async fn create_or_update_inventory_item(
+        &self,
+        product_id: Uuid,
+        stock_level: u32,
+        threshold: u32,
+        supplier: Option<String>,
+        reorder_amount: Option<u32>,
+        unit: Option<String>,
+        notes: Option<String>,
+        expiry_date: Option<String>,
+        purchase_price: f64,
+        selling_price: f64,
+    ) -> Result<InventoryItem, ServiceError> {
+        // Find the product
+        let product = Product::find_by_id(product_id)
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Product with ID {} not found", product_id))
+            })?;
+
+        // Find or create inventory record
+        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+
+        let mut inventory_model = match inventory {
+            Some(model) => model.into_active_model(),
+            None => {
+                // Create new inventory record if it doesn't exist
+                let mut new_model = db_entity::inventory::ActiveModel::default();
+                new_model.product_id = Set(product_id);
+                new_model.created_at = Set(Utc::now());
+                new_model
+            }
+        };
+
+        // Parse expiry date if provided
+        let expiry_date = if let Some(date_str) = expiry_date {
+            match NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                Ok(date) => Some(date),
+                Err(_) => {
+                    return Err(ServiceError::InvalidValue(format!(
+                        "Invalid expiry date format: {}. Expected YYYY-MM-DD",
+                        date_str
+                    )));
+                }
+            }
+        } else {
+            None
+        };
+
+        // Update all fields
+        inventory_model.stock_level = Set(stock_level);
+        inventory_model.threshold = Set(threshold);
+        inventory_model.supplier = Set(supplier);
+        inventory_model.reorder_amount = Set(reorder_amount);
+        inventory_model.unit = Set(unit);
+        inventory_model.notes = Set(notes);
+        inventory_model.expiry_date = Set(expiry_date);
+        inventory_model.purchase_price = Set(purchase_price.into());
+        inventory_model.selling_price = Set(selling_price.into());
+        inventory_model.price_updated_at = Set(Utc::now());
+        inventory_model.updated_at = Set(Utc::now());
+
+        // Save changes
+        let updated_inventory = if inventory.is_some() {
+            inventory_model.update(&*self.db).await?
+        } else {
+            inventory_model.insert(&*self.db).await?
+        };
+
+        // Return updated inventory item
+        self.to_inventory_item(&product, Some(&updated_inventory))
+            .await
+    }
+}
+
+async fn create_new_inventory_model(product_id: Uuid) -> db_entity::inventory::ActiveModel {
+    let mut new_model = db_entity::inventory::ActiveModel::default();
+    new_model.product_id = Set(product_id);
+    new_model.stock_level = Set(0);
+    new_model.threshold = Set(10);
+    new_model.created_at = Set(Utc::now());
+    new_model.updated_at = Set(Utc::now());
+    new_model.price_updated_at = Set(Utc::now());
+    new_model.purchase_price = Set(0.0.into());
+    new_model.selling_price = Set(0.0.into());
+    new_model
 }

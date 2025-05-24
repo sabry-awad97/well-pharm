@@ -25,6 +25,7 @@ url = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v7"] }
 
 db_entity = { workspace = true }
+rust_decimal = "1.37.1"
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

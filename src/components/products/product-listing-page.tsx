@@ -4,7 +4,8 @@ import {
   useProductSearch,
 } from '@/api/product';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Pagination,
   PaginationContent,
@@ -14,19 +15,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   type SortingState,
   createColumnHelper,
-  flexRender,
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -34,11 +27,18 @@ import {
 } from '@tanstack/react-table';
 import { ArrowUpDown, Loader2, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { EnhancedSearch } from './enhanced-search';
 import { HighlightedText } from './highlighted-text';
 import { ProductActions } from './product-actions';
 import { ProductCategoryBadge } from './product-category-badge';
+import { ProductCategoryChart } from './product-category-chart';
 import { ProductDialog } from './product-dialog';
-import { ProductFilters } from './product-filters';
+import { type FilterOptions, ProductFilters } from './product-filters';
+import { ProductGridView } from './product-grid-view';
+import { StockLevelIndicator } from './stock-level-indicator';
+import { TableCustomization } from './table-customization';
+import { ViewToggle } from './view-toggle';
+import { VirtualizedTable } from './virtualized-table';
 
 // Number of items per page
 const PAGE_SIZE = 10;
@@ -49,17 +49,31 @@ export function ProductListingPage() {
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(
-    undefined,
-  );
-  const [selectedManufacturer, setSelectedManufacturer] = useState<
-    string | undefined
-  >(undefined);
+
+  // Enhanced filter state
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    categories: [],
+    manufacturers: [],
+    selectedCategories: [],
+    selectedManufacturers: [],
+  });
+
+  // View state (table or grid)
+  const [view, setView] = useState<'table' | 'grid'>('table');
+
+  // Tab state for analytics
+  const [activeTab, setActiveTab] = useState('products');
 
   // State for sorting
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'name', desc: false },
   ]);
+
+  // State for column visibility
+  const [columnVisibility, setColumnVisibility] = useState({});
+
+  // State for row selection
+  const [rowSelection, setRowSelection] = useState({});
 
   // State for dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -90,8 +104,18 @@ export function ProductListingPage() {
     isLoading: isFilterLoading,
     error: filterError,
   } = useProductFilter({
-    category: selectedCategory,
-    manufacturer: selectedManufacturer,
+    category:
+      filterOptions.selectedCategories.length > 0
+        ? filterOptions.selectedCategories.join(',')
+        : undefined,
+    manufacturer:
+      filterOptions.selectedManufacturers.length > 0
+        ? filterOptions.selectedManufacturers.join(',')
+        : undefined,
+    dateFrom: filterOptions.dateRange?.from?.toISOString(),
+    dateTo: filterOptions.dateRange?.to?.toISOString(),
+    priceMin: filterOptions.priceRange?.min?.toString(),
+    priceMax: filterOptions.priceRange?.max?.toString(),
   });
 
   // Determine which data source to use
@@ -99,6 +123,24 @@ export function ProductListingPage() {
     if (debouncedQuery) return searchResults || [];
     return filteredProducts || [];
   }, [debouncedQuery, searchResults, filteredProducts]);
+
+  // Extract unique categories and manufacturers for filters
+  useEffect(() => {
+    if (filteredProducts) {
+      const categories = Array.from(
+        new Set(filteredProducts.map(p => p.category)),
+      ).sort();
+      const manufacturers = Array.from(
+        new Set(filteredProducts.map(p => p.manufacturer)),
+      ).sort();
+
+      setFilterOptions(prev => ({
+        ...prev,
+        categories,
+        manufacturers,
+      }));
+    }
+  }, [filteredProducts]);
 
   // Loading and error states
   const isLoading = isSearchLoading || isFilterLoading;
@@ -127,20 +169,63 @@ export function ProductListingPage() {
     queryClient.invalidateQueries({ queryKey: ['products'] });
   }, [queryClient]);
 
-  // Extract unique manufacturers for filter dropdown
-  const manufacturers = useMemo(() => {
-    if (!filteredProducts) return [];
-    const uniqueManufacturers = new Set(
-      filteredProducts.map(p => p.manufacturer),
-    );
-    return Array.from(uniqueManufacturers).sort();
-  }, [filteredProducts]);
+  // Handle filter changes
+  const handleFilterChange = useCallback(
+    (newFilters: Partial<FilterOptions>) => {
+      setFilterOptions(prev => ({
+        ...prev,
+        ...newFilters,
+      }));
+    },
+    [],
+  );
+
+  // Clear all filters
+  const handleClearFilters = useCallback(() => {
+    setFilterOptions(prev => ({
+      ...prev,
+      selectedCategories: [],
+      selectedManufacturers: [],
+      dateRange: undefined,
+      priceRange: undefined,
+    }));
+  }, []);
+
+  // Handle search
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   const columns = useMemo(() => {
     // Column definitions for TanStack Table
     const columnHelper = createColumnHelper<Product>();
 
     return [
+      // Selection column
+      columnHelper.display({
+        id: 'select',
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && 'indeterminate')
+            }
+            onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={value => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        size: 40,
+      }),
+
       columnHelper.accessor('name', {
         header: ({ column }) => (
           <Button
@@ -224,6 +309,27 @@ export function ProductListingPage() {
           />
         ),
       }),
+      // Stock level column (visual indicator)
+      columnHelper.display({
+        id: 'stockLevel',
+        header: 'Stock Level',
+        cell: ({ row }) => {
+          // Mock data for demonstration - replace with actual data
+          const stockLevel = Math.floor(Math.random() * 100);
+          const threshold = 20;
+          const maxStock = 100;
+
+          return (
+            <StockLevelIndicator
+              stockLevel={stockLevel}
+              threshold={threshold}
+              maxStock={maxStock}
+              className="w-24"
+            />
+          );
+        },
+        enableSorting: true,
+      }),
       columnHelper.display({
         id: 'actions',
         header: () => <div className="text-right">Actions</div>,
@@ -246,8 +352,13 @@ export function ProductListingPage() {
     columns,
     state: {
       sorting,
+      columnVisibility,
+      rowSelection,
     },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -259,10 +370,9 @@ export function ProductListingPage() {
   });
 
   // Reset pagination when filters or search change
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     table.resetPageIndex();
-  }, [debouncedQuery, selectedCategory, selectedManufacturer, table]);
+  }, [debouncedQuery, filterOptions, table]);
 
   // Calculate total pages for custom pagination UI
   const totalPages = Math.ceil(
@@ -308,197 +418,199 @@ export function ProductListingPage() {
         </Button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
-        <div className="relative">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="Search products..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10"
-            aria-label="Search products"
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="products" className="space-y-4">
+          {/* Search and Filters */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
+            <EnhancedSearch
+              products={filteredProducts || []}
+              onSearch={handleSearch}
+              placeholder="Search products..."
+              className="w-full"
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              <ViewToggle view={view} onViewChange={setView} />
+              <TableCustomization table={table} />
+            </div>
+          </div>
+
+          <ProductFilters
+            filterOptions={filterOptions}
+            onFilterChange={handleFilterChange}
+            onClearFilters={handleClearFilters}
           />
-        </div>
 
-        <ProductFilters
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          selectedManufacturer={selectedManufacturer}
-          setSelectedManufacturer={setSelectedManufacturer}
-          manufacturers={manufacturers}
-        />
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div
-          className="bg-destructive/10 text-destructive rounded-md p-4"
-          role="alert"
-        >
-          <p>Error loading products: {String(error)}</p>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {isLoading && (
-        <div
-          className="flex items-center justify-center py-8"
-          aria-live="polite"
-        >
-          <Loader2 className="text-primary h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading products...</span>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && table.getRowModel().rows.length === 0 && (
-        <div className="flex min-h-[calc(100vh-11rem)] flex-1 flex-col items-center justify-center rounded-md border py-12 text-center">
-          <div className="bg-primary/10 mx-auto flex h-12 w-12 items-center justify-center rounded-full">
-            <Search className="text-primary h-6 w-6" />
-          </div>
-          <h3 className="mt-4 text-lg font-semibold">No products found</h3>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {debouncedQuery
-              ? `No products match "${debouncedQuery}"`
-              : 'Try adjusting your filters or add a new product'}
-          </p>
-          <Button
-            onClick={handleCreateProduct}
-            variant="outline"
-            className="mt-6"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add New Product
-          </Button>
-        </div>
-      )}
-
-      {/* Products table */}
-      {!isLoading && table.getRowModel().rows.length > 0 && (
-        <>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map(headerGroup => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map(header => (
-                      <TableHead
-                        key={header.id}
-                        style={{ width: header.column.getSize() }}
-                        className={
-                          header.id === 'genericName'
-                            ? 'hidden md:table-cell'
-                            : header.id === 'dosageForm' ||
-                                header.id === 'strength'
-                              ? 'hidden lg:table-cell'
-                              : undefined
-                        }
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows.map(row => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <TableCell
-                        key={cell.id}
-                        className={
-                          cell.column.id === 'genericName'
-                            ? 'hidden md:table-cell'
-                            : cell.column.id === 'dosageForm' ||
-                                cell.column.id === 'strength'
-                              ? 'hidden lg:table-cell'
-                              : cell.column.id === 'actions'
-                                ? 'text-right'
-                                : undefined
-                        }
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => table.previousPage()}
-                    isActive={table.getCanPreviousPage()}
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                  let pageNum: number;
-
-                  // Logic to show pages around current page
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  if (
-                    pageNum === 1 ||
-                    pageNum === totalPages ||
-                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          onClick={() => table.setPageIndex(pageNum - 1)}
-                          isActive={currentPage === pageNum}
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  }
-
-                  if (pageNum === 2 || pageNum === totalPages - 1) {
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-
-                  return null;
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => table.nextPage()}
-                    isActive={table.getCanNextPage()}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+          {/* Error state */}
+          {error && (
+            <div
+              className="bg-destructive/10 text-destructive rounded-md p-4"
+              role="alert"
+            >
+              <p>Error loading products: {String(error)}</p>
+            </div>
           )}
-        </>
-      )}
+
+          {/* Loading state */}
+          {isLoading && (
+            <div
+              className="flex items-center justify-center py-8"
+              aria-live="polite"
+            >
+              <Loader2 className="text-primary h-8 w-8 animate-spin" />
+              <span className="ml-2">Loading products...</span>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoading && table.getRowModel().rows.length === 0 && (
+            <div className="flex min-h-[calc(100vh-11rem)] flex-1 flex-col items-center justify-center rounded-md border py-12 text-center">
+              <div className="bg-primary/10 mx-auto flex h-12 w-12 items-center justify-center rounded-full">
+                <Search className="text-primary h-6 w-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold">No products found</h3>
+              <p className="text-muted-foreground mt-2 text-sm">
+                {debouncedQuery
+                  ? `No products match "${debouncedQuery}"`
+                  : 'Try adjusting your filters or add a new product'}
+              </p>
+              <Button
+                onClick={handleCreateProduct}
+                variant="outline"
+                className="mt-6"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add New Product
+              </Button>
+            </div>
+          )}
+
+          {/* Products display (table or grid) */}
+          {!isLoading && table.getRowModel().rows.length > 0 && (
+            <>
+              {view === 'table' ? (
+                <VirtualizedTable table={table} />
+              ) : (
+                <ProductGridView
+                  products={table.getRowModel().rows.map(row => row.original)}
+                  onView={handleViewProduct}
+                  onEdit={handleEditProduct}
+                />
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => table.previousPage()}
+                        isActive={table.getCanPreviousPage()}
+                      />
+                    </PaginationItem>
+
+                    {Array.from({ length: Math.min(5, totalPages) }).map(
+                      (_, i) => {
+                        let pageNum: number;
+
+                        // Logic to show pages around current page
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        if (
+                          pageNum === 1 ||
+                          pageNum === totalPages ||
+                          (pageNum >= currentPage - 1 &&
+                            pageNum <= currentPage + 1)
+                        ) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink
+                                onClick={() => table.setPageIndex(pageNum - 1)}
+                                isActive={currentPage === pageNum}
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+
+                        if (pageNum === 2 || pageNum === totalPages - 1) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+
+                        return null;
+                      },
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => table.nextPage()}
+                        isActive={table.getCanNextPage()}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardContent className="pt-6">
+                <ProductCategoryChart products={products} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                {/* Additional analytics could go here */}
+                <h3 className="mb-4 text-lg font-medium">Product Statistics</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-muted-foreground text-sm">
+                      Total Products
+                    </p>
+                    <p className="text-2xl font-bold">{products.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-sm">Categories</p>
+                    <p className="text-2xl font-bold">
+                      {new Set(products.map(p => p.category)).size}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-sm">
+                      Manufacturers
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {new Set(products.map(p => p.manufacturer)).size}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
