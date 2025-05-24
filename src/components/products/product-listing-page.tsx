@@ -313,7 +313,7 @@ export function ProductListingPage() {
       columnHelper.display({
         id: 'stockLevel',
         header: 'Stock Level',
-        cell: ({ row }) => {
+        cell: () => {
           // Mock data for demonstration - replace with actual data
           const stockLevel = Math.floor(Math.random() * 100);
           const threshold = 20;
@@ -371,7 +371,7 @@ export function ProductListingPage() {
 
   // Reset pagination when filters or search change
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-    useEffect(() => {
+  useEffect(() => {
     table.resetPageIndex();
   }, [debouncedQuery, filterOptions, table]);
 
@@ -512,6 +512,12 @@ export function ProductListingPage() {
                       <PaginationPrevious
                         onClick={() => table.previousPage()}
                         isActive={table.getCanPreviousPage()}
+                        aria-disabled={!table.getCanPreviousPage()}
+                        className={
+                          !table.getCanPreviousPage()
+                            ? 'pointer-events-none opacity-50'
+                            : 'hover:cursor-pointer'
+                        }
                       />
                     </PaginationItem>
 
@@ -537,7 +543,10 @@ export function ProductListingPage() {
                             pageNum <= currentPage + 1)
                         ) {
                           return (
-                            <PaginationItem key={pageNum}>
+                            <PaginationItem
+                              className="hover:cursor-pointer"
+                              key={pageNum}
+                            >
                               <PaginationLink
                                 onClick={() => table.setPageIndex(pageNum - 1)}
                                 isActive={currentPage === pageNum}
@@ -564,6 +573,12 @@ export function ProductListingPage() {
                       <PaginationNext
                         onClick={() => table.nextPage()}
                         isActive={table.getCanNextPage()}
+                        aria-disabled={!table.getCanNextPage()}
+                        className={
+                          !table.getCanNextPage()
+                            ? 'pointer-events-none opacity-50'
+                            : 'hover:cursor-pointer'
+                        }
                       />
                     </PaginationItem>
                   </PaginationContent>
