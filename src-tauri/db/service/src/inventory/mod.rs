@@ -132,6 +132,9 @@ pub trait InventoryRepository: Send + Sync {
 
     /// Get soon-to-expire batches
     async fn get_expiring_batches(&self, days: u32) -> Result<Vec<BatchItem>, ServiceError>;
+
+    /// List all batches
+    async fn list_all_batches(&self) -> Result<Vec<BatchItem>, ServiceError>;
 }
 
 /// Sea-ORM implementation of InventoryRepository
@@ -828,6 +831,23 @@ impl InventoryRepository for SeaOrmInventoryRepository {
                     .and(db_entity::inventory_batch::Column::Quantity.gt(0)),
             )
             .order_by_asc(db_entity::inventory_batch::Column::ExpiryDate)
+            .all(&*self.db)
+            .await?;
+
+        // Convert to DTOs
+        let mut batch_items = Vec::new();
+        for batch in batches {
+            let batch_item = self.to_batch_item(&batch).await?;
+            batch_items.push(batch_item);
+        }
+
+        Ok(batch_items)
+    }
+
+    async fn list_all_batches(&self) -> Result<Vec<BatchItem>, ServiceError> {
+        // Find all batches
+        let batches = db_entity::inventory_batch::Entity::find()
+            .order_by_desc(db_entity::inventory_batch::Column::UpdatedAt)
             .all(&*self.db)
             .await?;
 

@@ -656,3 +656,35 @@ pub async fn get_expiring_batches(
 
     Ok(responses)
 }
+
+#[tauri::command]
+pub async fn list_all_batches(
+    service_manager: State<'_, ServiceManager>,
+) -> Result<Vec<BatchItemResponse>, String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Get all batches
+    let batches = inventory_service
+        .list_all_batches()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Convert to responses
+    let responses = batches
+        .into_iter()
+        .map(|batch| BatchItemResponse {
+            id: batch.id.to_string(),
+            product_id: batch.product_id.to_string(),
+            batch_number: batch.batch_number,
+            quantity: batch.quantity,
+            manufacturing_date: batch.manufacturing_date,
+            expiry_date: batch.expiry_date,
+            purchase_price: batch.purchase_price,
+            notes: batch.notes,
+            created_at: batch.created_at.to_rfc3339(),
+            updated_at: batch.updated_at.to_rfc3339(),
+        })
+        .collect();
+
+    Ok(responses)
+}

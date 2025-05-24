@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use app_config::Settings;
 use db_entity::UserRole;
-use db_service::{ensure_database_exists, establish_connection};
+use db_service::{ServiceManager, ensure_database_exists, establish_connection};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
@@ -71,8 +71,44 @@ impl OnboardingManager {
         app_dir.join("onboarding_completed")
     }
 
-    pub fn is_onboarding_completed(&self) -> bool {
-        self.get_onboarding_status_file().exists()
+    pub async fn is_onboarding_completed(&self) -> bool {
+        // First check if the onboarding_completed file exists
+        let file_exists = self.get_onboarding_status_file().exists();
+
+        if !file_exists {
+            // If the file doesn't exist, onboarding is not completed
+            return false;
+        }
+
+        // Additional check: verify that the database has the required tables
+        // This helps detect cases where the database was reset but the onboarding file still exists
+        if let Some(service_manager) = self.app_handle.try_state::<ServiceManager>() {
+            let user_repo = service_manager.user_repository();
+
+            // Check if we can access a critical table like users
+            match user_repo.count().await {
+                Ok(_) => {
+                    // Database seems to be working, onboarding is completed
+                    true
+                }
+                Err(e) => {
+                    // Database error - likely reset or not properly set up
+                    tracing::warn!(
+                        "Database check failed during onboarding status check: {}",
+                        e
+                    );
+                    // Delete the onboarding file since the database is not in a good state
+                    if let Err(e) = std::fs::remove_file(self.get_onboarding_status_file()) {
+                        tracing::error!("Failed to remove onboarding status file: {}", e);
+                    }
+                    false
+                }
+            }
+        } else {
+            // If we can't access the service manager, assume onboarding is not complete
+            tracing::warn!("Could not access service manager during onboarding status check");
+            false
+        }
     }
 
     pub async fn configure_database(
@@ -83,7 +119,7 @@ impl OnboardingManager {
         user: String,
         password: String,
     ) -> Result<(), OnboardingError> {
-        if self.is_onboarding_completed() {
+        if self.is_onboarding_completed().await {
             return Err(OnboardingError::AlreadyCompleted);
         }
 
@@ -106,7 +142,7 @@ impl OnboardingManager {
             .map_err(|e| {
                 OnboardingError::DatabaseError(format!("Failed to connect to database: {}", e))
             })?;
-        
+
         // Run migrations
         info!("Running database migrations...");
         db_migration::run_migrations(&conn).await.map_err(|e| {
@@ -145,7 +181,7 @@ impl OnboardingManager {
         email: String,
         password: String,
     ) -> Result<(), OnboardingError> {
-        if self.is_onboarding_completed() {
+        if self.is_onboarding_completed().await {
             return Err(OnboardingError::AlreadyCompleted);
         }
 
@@ -169,7 +205,7 @@ impl OnboardingManager {
         &self,
         settings: WorkspaceSettings,
     ) -> Result<(), OnboardingError> {
-        if self.is_onboarding_completed() {
+        if self.is_onboarding_completed().await {
             return Err(OnboardingError::AlreadyCompleted);
         }
 

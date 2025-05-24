@@ -1,4 +1,5 @@
 import { checkAuth } from '@/api/auth';
+import { checkOnboardingStatus } from '@/api/onboarding';
 import { LoginPage } from '@/components/auth/login-page';
 import { createContextLogger } from '@/lib/logger';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -13,6 +14,20 @@ export const Route = createFileRoute('/login')({
     LoginRouteLog.info('Checking authentication status before loading');
 
     try {
+      // First check if onboarding is completed
+      const isOnboarded = await checkOnboardingStatus();
+      
+      // Store the result in the query cache for components to use
+      context.queryClient.setQueryData(['onboarding', 'status'], isOnboarded);
+      
+      // If not onboarded, redirect to onboarding page
+      if (!isOnboarded) {
+        LoginRouteLog.info('Not onboarded, redirecting to onboarding');
+        throw redirect({
+          to: '/onboarding',
+        });
+      }
+
       // Check if user is already authenticated
       const queryClient = context.queryClient;
 
@@ -88,6 +103,18 @@ function LoginPageWrapper() {
 
     const checkAuthStatus = async () => {
       try {
+        // First check if onboarding is completed
+        const isOnboarded = await checkOnboardingStatus();
+        
+        if (!isOnboarded) {
+          LoginPageWrapperLog.info('Not onboarded, redirecting to onboarding');
+          navigate({
+            to: '/onboarding',
+            replace: true,
+          });
+          return;
+        }
+        
         const isAuthenticated = await checkAuth();
 
         if (isAuthenticated) {
@@ -125,3 +152,4 @@ function LoginPageWrapper() {
 
   return <LoginPage />;
 }
+

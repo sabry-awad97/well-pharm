@@ -12,7 +12,11 @@ import { checkAuth } from '@/api/auth';
 import { checkOnboardingStatus } from '@/api/onboarding';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/sonner';
+import { createContextLogger } from '@/lib/logger';
 import type { QueryClient } from '@tanstack/react-query';
+
+// Create a route-specific logger
+const RootRouteLog = createContextLogger('RootRoute');
 
 interface MyRouterContext {
   queryClient: QueryClient;
@@ -27,6 +31,8 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
     const { pathname } = location;
     const queryClient = context.queryClient;
 
+    RootRouteLog.info('Route beforeLoad running', { pathname });
+
     // Store current path for potential redirects back
     // Don't store login or onboarding paths
     if (!publicRoutes.includes(pathname)) {
@@ -35,19 +41,23 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
     // Skip checks for public routes
     if (publicRoutes.includes(pathname)) {
+      RootRouteLog.debug('Skipping checks for public route', { pathname });
       return;
     }
 
     try {
-      // 1. Check onboarding status first
+      // 1. Check onboarding status first - ALWAYS check directly with the backend
+      // after a database reset to ensure we have the latest status
+      RootRouteLog.debug('Checking onboarding status');
       const isOnboarded = await checkOnboardingStatus();
 
       // Store the result in the query cache for components to use
       queryClient.setQueryData(['onboarding', 'status'], isOnboarded);
+      RootRouteLog.info('Onboarding status', { isOnboarded });
 
       // If not onboarded, redirect to onboarding page
       if (!isOnboarded) {
-        console.log('Not onboarded, redirecting to onboarding');
+        RootRouteLog.info('Not onboarded, redirecting to onboarding');
         throw redirect({
           to: '/onboarding',
         });
@@ -60,33 +70,30 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         'session',
       ]);
 
-      console.log('Root route: Cached auth state:', isAuthenticated);
+      RootRouteLog.debug('Cached auth state', { isAuthenticated });
 
       // Check for tokens directly
       const hasToken =
         localStorage.getItem('access_token') !== null ||
         sessionStorage.getItem('access_token') !== null;
 
-      console.log('Root route: Direct token check result:', hasToken);
+      RootRouteLog.debug('Direct token check result', { hasToken });
 
       // If we have conflicting information (cache says not authenticated but tokens exist),
       // we should verify the tokens directly
       if (isAuthenticated === false && hasToken) {
-        console.log(
-          'Root route: Conflicting auth state, verifying tokens directly',
-        );
+        RootRouteLog.debug('Conflicting auth state, verifying tokens directly');
         isAuthenticated = await checkAuth();
         // Update cache to match reality
         queryClient.setQueryData(['auth', 'session'], isAuthenticated);
-        console.log(
-          'Root route: Updated auth state after verification:',
+        RootRouteLog.debug('Updated auth state after verification', {
           isAuthenticated,
-        );
+        });
       }
 
       // If cached state says not authenticated and no tokens, trust it and redirect
       if (isAuthenticated === false && !hasToken) {
-        console.log(
+        RootRouteLog.info(
           'Not authenticated (from cache and token check), redirecting to login',
         );
         throw redirect({
@@ -96,7 +103,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
       // If no tokens found, user is not authenticated regardless of cache
       if (!hasToken) {
-        console.log('No tokens found, redirecting to login');
+        RootRouteLog.info('No tokens found, redirecting to login');
         // Update cache to match reality
         queryClient.setQueryData(['auth', 'session'], false);
         throw redirect({
@@ -113,22 +120,25 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
       // If not authenticated, redirect to login page
       if (!isAuthenticated) {
-        console.log('Not authenticated, redirecting to login');
+        RootRouteLog.info('Not authenticated, redirecting to login');
         throw redirect({
           to: '/login',
         });
       }
 
-      console.log('Authentication check passed, continuing to requested route');
+      RootRouteLog.info(
+        'Authentication check passed, continuing to requested route',
+      );
     } catch (error) {
       // Check if the error is a redirect
       if (error && typeof error === 'object' && 'isRedirect' in error) {
         // Rethrow redirects to let the router handle them
+        RootRouteLog.debug('Handling redirect', { error });
         throw error;
       }
 
       // Log other errors but don't block rendering
-      console.error('Failed to check application status:', error);
+      RootRouteLog.error('Failed to check application status', { error });
     }
   },
 });

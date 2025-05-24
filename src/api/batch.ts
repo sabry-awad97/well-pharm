@@ -46,13 +46,13 @@ export const UpdateBatchSchema = z.object({
 });
 
 export const BatchTransactionSchema = z.object({
+  id: z.string().uuid('Invalid transaction ID'),
   batchId: z.string().uuid('Invalid batch ID'),
-  quantity: z
-    .number()
-    .int()
-    .refine(n => n !== 0, 'Quantity must be non-zero'),
-  transactionType: z.string().min(1, 'Transaction type is required'),
-  notes: z.string().nullable().optional(),
+  quantity: z.number().int(),
+  transactionType: z.string(),
+  notes: z.string().nullable(),
+  createdAt: z.string(),
+  createdBy: z.string().uuid().nullable(),
 });
 
 // Type definitions
@@ -60,6 +60,7 @@ export type BatchItem = z.infer<typeof BatchItemSchema>;
 export type AddBatchRequest = z.infer<typeof AddBatchSchema>;
 export type UpdateBatchRequest = z.infer<typeof UpdateBatchSchema>;
 export type BatchTransactionRequest = z.infer<typeof BatchTransactionSchema>;
+export type BatchTransaction = z.infer<typeof BatchTransactionSchema>;
 
 /**
  * Adds a new batch
@@ -292,3 +293,77 @@ export function useExpiringBatches(days = 30) {
     queryFn: () => getExpiringBatches(days),
   });
 }
+
+/**
+ * Fetches all batches from the database
+ */
+export async function listAllBatches(): Promise<BatchItem[]> {
+  try {
+    batchAPILog.debug('Fetching all batches');
+    const result = await invoke<BatchItem[]>('list_all_batches');
+    batchAPILog.debug('Fetched all batches successfully', { count: result.length });
+    return result;
+  } catch (error) {
+    batchAPILog.error('Failed to fetch all batches', { error });
+    throw error;
+  }
+}
+
+/**
+ * React Query hook for fetching all batches
+ */
+export function useListAllBatches() {
+  return useQuery({
+    queryKey: ['batches', 'all'],
+    queryFn: listAllBatches,
+  });
+}
+
+/**
+ * Lists transaction history for a specific batch
+ *
+ * @param batchId Batch ID
+ * @returns Promise with list of batch transactions
+ */
+export async function listBatchTransactions(
+  batchId: string
+): Promise<BatchTransaction[]> {
+  batchAPILog.info('Listing batch transactions', { batchId });
+
+  try {
+    const response = await invoke<unknown>('list_batch_transactions', {
+      batchId,
+    });
+    
+    // Validate the response with Zod schema
+    const validatedTransactions = z.array(BatchTransactionSchema).parse(response);
+    
+    batchAPILog.debug('Fetched batch transactions successfully', { 
+      batchId, 
+      count: validatedTransactions.length 
+    });
+    
+    return validatedTransactions;
+  } catch (error) {
+    batchAPILog.error('Failed to list batch transactions', { batchId, error });
+    throw new Error(
+      `Failed to list batch transactions: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * React Query hook for listing batch transactions
+ *
+ * @param batchId Batch ID
+ * @returns Query result with transactions, loading state, and error
+ */
+export function useListBatchTransactions(batchId: string) {
+  return useQuery({
+    queryKey: ['batches', batchId, 'transactions'],
+    queryFn: () => listBatchTransactions(batchId),
+    enabled: !!batchId, // Only run the query if batchId is provided
+  });
+}
+
+

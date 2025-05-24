@@ -6,7 +6,7 @@ use crate::services::{DbConfig, OnboardingManager, WorkspaceSettings};
 #[tauri::command]
 pub async fn check_onboarding_status(app_state: State<'_, AppHandle>) -> Result<bool, String> {
     let onboarding = OnboardingManager::new(app_state.inner().clone());
-    Ok(onboarding.is_onboarding_completed())
+    Ok(onboarding.is_onboarding_completed().await)
 }
 
 #[tauri::command]

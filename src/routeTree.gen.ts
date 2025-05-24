@@ -19,6 +19,7 @@ import { Route as InventoryIndexImport } from './routes/inventory/index'
 import { Route as InventoryTrendsImport } from './routes/inventory/trends'
 import { Route as InventoryManagementImport } from './routes/inventory/management'
 import { Route as InventoryExpiringImport } from './routes/inventory/expiring'
+import { Route as InventoryBatchesImport } from './routes/inventory/batches'
 
 // Create/Update Routes
 
@@ -70,6 +71,12 @@ const InventoryExpiringRoute = InventoryExpiringImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const InventoryBatchesRoute = InventoryBatchesImport.update({
+  id: '/inventory/batches',
+  path: '/inventory/batches',
+  getParentRoute: () => rootRoute,
+} as any)
+
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
@@ -93,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingImport
+      parentRoute: typeof rootRoute
+    }
+    '/inventory/batches': {
+      id: '/inventory/batches'
+      path: '/inventory/batches'
+      fullPath: '/inventory/batches'
+      preLoaderRoute: typeof InventoryBatchesImport
       parentRoute: typeof rootRoute
     }
     '/inventory/expiring': {
@@ -139,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/inventory/batches': typeof InventoryBatchesRoute
   '/inventory/expiring': typeof InventoryExpiringRoute
   '/inventory/management': typeof InventoryManagementRoute
   '/inventory/trends': typeof InventoryTrendsRoute
@@ -150,6 +165,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/inventory/batches': typeof InventoryBatchesRoute
   '/inventory/expiring': typeof InventoryExpiringRoute
   '/inventory/management': typeof InventoryManagementRoute
   '/inventory/trends': typeof InventoryTrendsRoute
@@ -162,6 +178,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/inventory/batches': typeof InventoryBatchesRoute
   '/inventory/expiring': typeof InventoryExpiringRoute
   '/inventory/management': typeof InventoryManagementRoute
   '/inventory/trends': typeof InventoryTrendsRoute
@@ -175,6 +192,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/onboarding'
+    | '/inventory/batches'
     | '/inventory/expiring'
     | '/inventory/management'
     | '/inventory/trends'
@@ -185,6 +203,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/onboarding'
+    | '/inventory/batches'
     | '/inventory/expiring'
     | '/inventory/management'
     | '/inventory/trends'
@@ -195,6 +214,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/onboarding'
+    | '/inventory/batches'
     | '/inventory/expiring'
     | '/inventory/management'
     | '/inventory/trends'
@@ -207,6 +227,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  InventoryBatchesRoute: typeof InventoryBatchesRoute
   InventoryExpiringRoute: typeof InventoryExpiringRoute
   InventoryManagementRoute: typeof InventoryManagementRoute
   InventoryTrendsRoute: typeof InventoryTrendsRoute
@@ -218,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  InventoryBatchesRoute: InventoryBatchesRoute,
   InventoryExpiringRoute: InventoryExpiringRoute,
   InventoryManagementRoute: InventoryManagementRoute,
   InventoryTrendsRoute: InventoryTrendsRoute,
@@ -238,6 +260,7 @@ export const routeTree = rootRoute
         "/",
         "/login",
         "/onboarding",
+        "/inventory/batches",
         "/inventory/expiring",
         "/inventory/management",
         "/inventory/trends",
@@ -253,6 +276,9 @@ export const routeTree = rootRoute
     },
     "/onboarding": {
       "filePath": "onboarding.tsx"
+    },
+    "/inventory/batches": {
+      "filePath": "inventory/batches.tsx"
     },
     "/inventory/expiring": {
       "filePath": "inventory/expiring.tsx"

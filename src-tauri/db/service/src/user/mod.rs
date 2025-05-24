@@ -5,10 +5,13 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 use async_trait::async_trait;
-use db_entity::{utils::{db_id::DbId, db_time::DbTime}, User, UserActiveModel, UserRole};
+use db_entity::{
+    User, UserActiveModel, UserRole,
+    utils::{db_id::DbId, db_time::DbTime},
+};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
-    TransactionTrait,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    Set, TransactionTrait,
 };
 use std::{str::FromStr, sync::Arc};
 use tracing::{info, warn};
@@ -80,6 +83,9 @@ pub trait UserRepository: Send + Sync + 'static {
         jwt_manager: &JwtManager,
         token_store: &TokenStore,
     ) -> Result<(), ServiceError>;
+
+    /// Gets the user count
+    async fn count(&self) -> Result<u64, ServiceError>;
 }
 
 /// Sea ORM implementation of the UserRepository trait.
@@ -322,6 +328,11 @@ impl UserRepository for SeaOrmUserRepository {
 
         Ok(())
     }
+
+    async fn count(&self) -> Result<u64, ServiceError> {
+        let count = User::find().count(&*self.db).await?;
+        Ok(count)
+    }
 }
 
 #[cfg(test)]
@@ -347,7 +358,9 @@ mod tests {
             }])
             // Third query: get the created user by ID
             .append_query_results(vec![vec![UserModel {
-                id: DbId::from_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f").unwrap().into(),
+                id: DbId::from_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f")
+                    .unwrap()
+                    .into(),
                 username: "testuser".to_string(),
                 email: "test@example.com".to_string(),
                 password_hash: "hashed_password".to_string(), // This will be different in actual implementation

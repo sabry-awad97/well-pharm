@@ -28,6 +28,7 @@ pub fn create_handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         inventory::update_batch,
         inventory::get_batch,
         inventory::list_batches_by_product,
+        inventory::list_all_batches,
         inventory::record_batch_transaction,
         inventory::get_expiring_batches,
         product::create_product,

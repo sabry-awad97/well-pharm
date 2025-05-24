@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LineChart,
   Package,
+  PackageCheck,
   Pill,
   Settings,
   ShieldAlert,
@@ -42,6 +43,12 @@ export const navItems: NavItemType[] = [
         label: 'Management',
         to: '/inventory/management',
         keywords: ['stock', 'products'],
+      },
+      {
+        icon: PackageCheck,
+        label: 'Batches',
+        to: '/inventory/batches',
+        keywords: ['batch', 'expiry', 'stock management'],
       },
       {
         icon: LineChart,
@@ -106,3 +113,4 @@ export const navItems: NavItemType[] = [
     section: 'system',
   },
 ];
+
