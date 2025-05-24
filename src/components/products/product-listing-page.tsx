@@ -43,6 +43,10 @@ import { VirtualizedTable } from './virtualized-table';
 // Number of items per page
 const PAGE_SIZE = 10;
 
+// After the imports section, add this new import
+import { AnimatePresence, motion } from 'framer-motion';
+import { Archive, Download, Tag, Trash } from 'lucide-react';
+
 export function ProductListingPage() {
   const queryClient = useQueryClient();
 
@@ -503,6 +507,111 @@ export function ProductListingPage() {
                   onEdit={handleEditProduct}
                 />
               )}
+
+              {/* Selection Floating Bar */}
+              <AnimatePresence>
+                {Object.keys(rowSelection).length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="bg-primary/95 border-primary-foreground/10 fixed bottom-8 left-1/2 z-50 -translate-x-1/2 transform rounded-xl border px-5 py-3.5 shadow-lg backdrop-blur-sm"
+                    style={{
+                      boxShadow:
+                        '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                      maxWidth: '90vw',
+                      width: 'auto',
+                    }}
+                  >
+                    <div className="text-primary-foreground flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-primary-foreground/20 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium">
+                          {Object.keys(rowSelection).length}
+                        </div>
+                        <span className="font-medium whitespace-nowrap">
+                          {Object.keys(rowSelection).length > 1
+                            ? 'items selected'
+                            : 'item selected'}
+                        </span>
+                      </div>
+                      <div className="bg-primary-foreground/20 hidden h-6 w-px sm:block" />
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-primary-foreground/10 hover:bg-primary-foreground/20 h-9 gap-2 transition-all duration-200"
+                          onClick={() => {
+                            // Handle export selected
+                            console.log(
+                              'Export selected',
+                              Object.keys(rowSelection),
+                            );
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>Export</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-primary-foreground/10 hover:bg-primary-foreground/20 h-9 gap-2 transition-all duration-200"
+                          onClick={() => {
+                            // Handle tag selected
+                            console.log(
+                              'Tag selected',
+                              Object.keys(rowSelection),
+                            );
+                          }}
+                        >
+                          <Tag className="h-4 w-4" />
+                          <span>Tag</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-primary-foreground/10 hover:bg-primary-foreground/20 h-9 gap-2 transition-all duration-200"
+                          onClick={() => {
+                            // Handle archive selected
+                            console.log(
+                              'Archive selected',
+                              Object.keys(rowSelection),
+                            );
+                          }}
+                        >
+                          <Archive className="h-4 w-4" />
+                          <span>Archive</span>
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-9 gap-2 shadow-sm transition-all duration-200 hover:shadow"
+                          onClick={() => {
+                            // Handle delete selected
+                            console.log(
+                              'Delete selected',
+                              Object.keys(rowSelection),
+                            );
+                            // Clear selection after action
+                            setRowSelection({});
+                          }}
+                        >
+                          <Trash className="h-4 w-4" />
+                          <span>Delete</span>
+                        </Button>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-primary-foreground/20 ml-auto h-9 transition-all duration-200"
+                        onClick={() => setRowSelection({})}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Pagination */}
               {totalPages > 1 && (
