@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
   hidePasswordToggle?: boolean;
-  ref: React.Ref<HTMLInputElement | null>;
+  ref?: React.Ref<HTMLInputElement | null>;
 }
 
 function Input({

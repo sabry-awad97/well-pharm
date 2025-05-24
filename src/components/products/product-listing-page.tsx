@@ -6,6 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   Pagination,
   PaginationContent,
@@ -25,9 +26,18 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Loader2, Plus, Search } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Archive,
+  ArrowUpDown,
+  Download,
+  Loader2,
+  Plus,
+  Search,
+  Tag,
+  Trash,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { EnhancedSearch } from './enhanced-search';
 import { HighlightedText } from './highlighted-text';
 import { ProductActions } from './product-actions';
 import { ProductCategoryBadge } from './product-category-badge';
@@ -42,10 +52,6 @@ import { VirtualizedTable } from './virtualized-table';
 
 // Number of items per page
 const PAGE_SIZE = 10;
-
-// After the imports section, add this new import
-import { AnimatePresence, motion } from 'framer-motion';
-import { Archive, Download, Tag, Trash } from 'lucide-react';
 
 export function ProductListingPage() {
   const queryClient = useQueryClient();
@@ -193,11 +199,6 @@ export function ProductListingPage() {
       dateRange: undefined,
       priceRange: undefined,
     }));
-  }, []);
-
-  // Handle search
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
   }, []);
 
   const columns = useMemo(() => {
@@ -432,12 +433,16 @@ export function ProductListingPage() {
         <TabsContent value="products" className="space-y-4">
           {/* Search and Filters */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
-            <EnhancedSearch
-              products={filteredProducts || []}
-              onSearch={handleSearch}
-              placeholder="Search products..."
-              className="w-full"
-            />
+            <div className="relative w-full max-w-sm">
+              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              <Input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <ViewToggle view={view} onViewChange={setView} />

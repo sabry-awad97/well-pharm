@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/popover';
 import Fuse from 'fuse.js';
 import { Search, X } from 'lucide-react';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface EnhancedSearchProps {
   products: Product[];
@@ -36,14 +36,17 @@ export function EnhancedSearch({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize Fuse.js for fuzzy search
-  const fuse = useMemo(() => new Fuse(products, {
-    keys: ['name', 'genericName', 'manufacturer', 'category'],
-    includeScore: true,
-    threshold: 0.4,
-  }), [products]);
+  const fuse = useMemo(
+    () =>
+      new Fuse(products, {
+        keys: ['name', 'genericName', 'manufacturer', 'category'],
+        includeScore: true,
+        threshold: 0.4,
+      }),
+    [products],
+  );
 
   // Update suggestions when input changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     if (inputValue.length >= 2) {
       const results = fuse
@@ -119,7 +122,7 @@ export function EnhancedSearch({
           className="w-[var(--radix-popover-trigger-width)] p-0"
           align="start"
           side="bottom"
-          onOpenAutoFocus={(e) => e.preventDefault()}
+          onOpenAutoFocus={e => e.preventDefault()}
         >
           <Command>
             <CommandList>
