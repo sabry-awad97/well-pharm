@@ -1,5 +1,9 @@
-use db_entity::inventory::dto::InventoryItemUpdateParams;
+use chrono::NaiveDate;
+use db_entity::inventory_batch::dto::{BatchCreateParams, BatchUpdateParams};
 use db_entity::utils::db_id::DbId;
+use db_entity::{
+    inventory::dto::InventoryItemUpdateParams, inventory_batch::dto::BatchTransactionParams,
+};
 use db_service::ServiceManager;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -356,4 +360,299 @@ pub async fn get_stock_level(
         .map_err(|e| e.to_string())?;
 
     Ok(stock_level)
+}
+
+// Add batch-related request/response structs
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddBatchRequest {
+    product_id: String,
+    batch_number: String,
+    quantity: u32,
+    manufacturing_date: Option<String>,
+    expiry_date: Option<String>,
+    purchase_price: f64,
+    notes: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateBatchRequest {
+    id: String,
+    quantity: Option<u32>,
+    manufacturing_date: Option<String>,
+    expiry_date: Option<String>,
+    purchase_price: Option<f64>,
+    notes: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchTransactionRequest {
+    batch_id: String,
+    quantity: i32,
+    transaction_type: String,
+    notes: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchItemResponse {
+    id: String,
+    product_id: String,
+    batch_number: String,
+    quantity: u32,
+    manufacturing_date: Option<String>,
+    expiry_date: Option<String>,
+    purchase_price: f64,
+    notes: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+// Add batch-related commands
+
+#[tauri::command]
+pub async fn add_batch(
+    service_manager: State<'_, ServiceManager>,
+    request: AddBatchRequest,
+) -> Result<BatchItemResponse, String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Parse UUID from string
+    let product_id =
+        DbId::from_str(&request.product_id).map_err(|e| format!("Invalid product ID: {}", e))?;
+
+    // Parse dates if provided
+    let manufacturing_date = if let Some(date_str) = &request.manufacturing_date {
+        Some(
+            NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                .map_err(|e| format!("Invalid manufacturing date format: {}", e))?,
+        )
+    } else {
+        None
+    };
+
+    let expiry_date = if let Some(date_str) = &request.expiry_date {
+        Some(
+            NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                .map_err(|e| format!("Invalid expiry date format: {}", e))?,
+        )
+    } else {
+        None
+    };
+
+    // Add batch
+    let batch = inventory_service
+        .add_batch(BatchCreateParams {
+            product_id,
+            batch_number: request.batch_number,
+            quantity: request.quantity,
+            manufacturing_date,
+            expiry_date,
+            purchase_price: request.purchase_price,
+            notes: request.notes,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Convert to response
+    Ok(BatchItemResponse {
+        id: batch.id.to_string(),
+        product_id: batch.product_id.to_string(),
+        batch_number: batch.batch_number,
+        quantity: batch.quantity,
+        manufacturing_date: batch.manufacturing_date,
+        expiry_date: batch.expiry_date,
+        purchase_price: batch.purchase_price,
+        notes: batch.notes,
+        created_at: batch.created_at.to_rfc3339(),
+        updated_at: batch.updated_at.to_rfc3339(),
+    })
+}
+
+#[tauri::command]
+pub async fn update_batch(
+    service_manager: State<'_, ServiceManager>,
+    request: UpdateBatchRequest,
+) -> Result<BatchItemResponse, String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Parse UUID from string
+    let batch_id = DbId::from_str(&request.id).map_err(|e| format!("Invalid batch ID: {}", e))?;
+
+    // Parse dates if provided
+    let manufacturing_date = if let Some(date_str) = &request.manufacturing_date {
+        Some(
+            NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                .map_err(|e| format!("Invalid manufacturing date format: {}", e))?,
+        )
+    } else {
+        None
+    };
+
+    let expiry_date = if let Some(date_str) = &request.expiry_date {
+        Some(
+            NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                .map_err(|e| format!("Invalid expiry date format: {}", e))?,
+        )
+    } else {
+        None
+    };
+
+    // Update batch
+    let batch = inventory_service
+        .update_batch(BatchUpdateParams {
+            id: batch_id,
+            quantity: request.quantity,
+            manufacturing_date,
+            expiry_date,
+            purchase_price: request.purchase_price,
+            notes: request.notes,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Convert to response
+    Ok(BatchItemResponse {
+        id: batch.id.to_string(),
+        product_id: batch.product_id.to_string(),
+        batch_number: batch.batch_number,
+        quantity: batch.quantity,
+        manufacturing_date: batch.manufacturing_date,
+        expiry_date: batch.expiry_date,
+        purchase_price: batch.purchase_price,
+        notes: batch.notes,
+        created_at: batch.created_at.to_rfc3339(),
+        updated_at: batch.updated_at.to_rfc3339(),
+    })
+}
+
+#[tauri::command]
+pub async fn get_batch(
+    service_manager: State<'_, ServiceManager>,
+    batch_id: String,
+) -> Result<Option<BatchItemResponse>, String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Parse UUID from string
+    let id = DbId::from_str(&batch_id).map_err(|e| format!("Invalid batch ID: {}", e))?;
+
+    // Get batch
+    let batch_option = inventory_service
+        .get_batch(id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Convert to response if found
+    match batch_option {
+        Some(batch) => Ok(Some(BatchItemResponse {
+            id: batch.id.to_string(),
+            product_id: batch.product_id.to_string(),
+            batch_number: batch.batch_number,
+            quantity: batch.quantity,
+            manufacturing_date: batch.manufacturing_date,
+            expiry_date: batch.expiry_date,
+            purchase_price: batch.purchase_price,
+            notes: batch.notes,
+            created_at: batch.created_at.to_rfc3339(),
+            updated_at: batch.updated_at.to_rfc3339(),
+        })),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub async fn list_batches_by_product(
+    service_manager: State<'_, ServiceManager>,
+    product_id: String,
+) -> Result<Vec<BatchItemResponse>, String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Parse UUID from string
+    let id = DbId::from_str(&product_id).map_err(|e| format!("Invalid product ID: {}", e))?;
+
+    // List batches
+    let batches = inventory_service
+        .list_batches_by_product(id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Convert to responses
+    let responses = batches
+        .into_iter()
+        .map(|batch| BatchItemResponse {
+            id: batch.id.to_string(),
+            product_id: batch.product_id.to_string(),
+            batch_number: batch.batch_number,
+            quantity: batch.quantity,
+            manufacturing_date: batch.manufacturing_date,
+            expiry_date: batch.expiry_date,
+            purchase_price: batch.purchase_price,
+            notes: batch.notes,
+            created_at: batch.created_at.to_rfc3339(),
+            updated_at: batch.updated_at.to_rfc3339(),
+        })
+        .collect();
+
+    Ok(responses)
+}
+
+#[tauri::command]
+pub async fn record_batch_transaction(
+    service_manager: State<'_, ServiceManager>,
+    request: BatchTransactionRequest,
+) -> Result<(), String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Parse UUID from string
+    let batch_id =
+        DbId::from_str(&request.batch_id).map_err(|e| format!("Invalid batch ID: {}", e))?;
+
+    // Record transaction
+    inventory_service
+        .record_batch_transaction(BatchTransactionParams {
+            batch_id,
+            quantity: request.quantity,
+            transaction_type: request.transaction_type,
+            notes: request.notes,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_expiring_batches(
+    service_manager: State<'_, ServiceManager>,
+    days: u32,
+) -> Result<Vec<BatchItemResponse>, String> {
+    let inventory_service = service_manager.inventory_repository();
+
+    // Get expiring batches
+    let batches = inventory_service
+        .get_expiring_batches(days)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Convert to responses
+    let responses = batches
+        .into_iter()
+        .map(|batch| BatchItemResponse {
+            id: batch.id.to_string(),
+            product_id: batch.product_id.to_string(),
+            batch_number: batch.batch_number,
+            quantity: batch.quantity,
+            manufacturing_date: batch.manufacturing_date,
+            expiry_date: batch.expiry_date,
+            purchase_price: batch.purchase_price,
+            notes: batch.notes,
+            created_at: batch.created_at.to_rfc3339(),
+            updated_at: batch.updated_at.to_rfc3339(),
+        })
+        .collect();
+
+    Ok(responses)
 }

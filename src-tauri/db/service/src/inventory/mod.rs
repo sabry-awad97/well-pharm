@@ -1,10 +1,15 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use db_entity::inventory::dto::InventoryItemUpdateParams;
+use db_entity::inventory_batch::dto::{
+    BatchCreateParams, BatchTransactionParams, BatchUpdateParams,
+};
 use db_entity::utils::db_id::DbId;
 use db_entity::{Inventory, InventoryModel, Product, ProductModel};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::prelude::{FromStr, ToPrimitive}; // For Decimal conversion
+use sea_orm::ColumnTrait;
 use sea_orm::prelude::Expr;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
@@ -13,6 +18,7 @@ use sea_orm::{
 use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::error::ServiceError;
 
@@ -35,6 +41,22 @@ pub struct InventoryItem {
     pub purchase_price: f64,
     pub selling_price: f64,
     pub price_updated_at: DateTime<Utc>,
+}
+
+/// Batch information for inventory items
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchItem {
+    pub id: DbId,
+    pub product_id: DbId,
+    pub batch_number: String,
+    pub quantity: u32,
+    pub manufacturing_date: Option<String>,
+    pub expiry_date: Option<String>,
+    pub purchase_price: f64,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Repository trait for inventory operations
@@ -85,6 +107,31 @@ pub trait InventoryRepository: Send + Sync {
         &self,
         params: InventoryItemUpdateParams,
     ) -> Result<InventoryItem, ServiceError>;
+
+    // New batch-related methods
+    /// Add a new batch for a product
+    async fn add_batch(&self, params: BatchCreateParams) -> Result<BatchItem, ServiceError>;
+
+    /// Update an existing batch
+    async fn update_batch(&self, params: BatchUpdateParams) -> Result<BatchItem, ServiceError>;
+
+    /// Get a batch by ID
+    async fn get_batch(&self, batch_id: DbId) -> Result<Option<BatchItem>, ServiceError>;
+
+    /// List all batches for a product
+    async fn list_batches_by_product(
+        &self,
+        product_id: DbId,
+    ) -> Result<Vec<BatchItem>, ServiceError>;
+
+    /// Record a batch transaction (purchase, sale, adjustment)
+    async fn record_batch_transaction(
+        &self,
+        params: BatchTransactionParams,
+    ) -> Result<(), ServiceError>;
+
+    /// Get soon-to-expire batches
+    async fn get_expiring_batches(&self, days: u32) -> Result<Vec<BatchItem>, ServiceError>;
 }
 
 /// Sea-ORM implementation of InventoryRepository
@@ -163,6 +210,42 @@ impl SeaOrmInventoryRepository {
             selling_price,
             price_updated_at: inventory.price_updated_at,
         })
+    }
+
+    async fn to_batch_item(
+        &self,
+        batch: &db_entity::inventory_batch::Model,
+    ) -> Result<BatchItem, ServiceError> {
+        Ok(BatchItem {
+            id: batch.id.into(),
+            product_id: batch.product_id.into(),
+            batch_number: batch.batch_number.clone(),
+            quantity: batch.quantity,
+            manufacturing_date: batch.manufacturing_date.map(|d| d.to_string()),
+            expiry_date: batch.expiry_date.map(|d| d.to_string()),
+            purchase_price: batch.purchase_price.to_f64().unwrap_or(0.0),
+            notes: batch.notes.clone(),
+            created_at: batch.created_at,
+            updated_at: batch.updated_at,
+        })
+    }
+
+    // Helper method to update total stock level based on batch quantities
+    async fn update_product_stock_level(&self, product_id: DbId) -> Result<(), ServiceError> {
+        let id: Uuid = product_id.clone().into();
+        // Sum all batch quantities for the product
+        let batches = db_entity::inventory_batch::Entity::find()
+            .filter(db_entity::inventory_batch::Column::ProductId.eq(id))
+            .all(&*self.db)
+            .await?;
+
+        let total_quantity: u32 = batches.iter().map(|b| b.quantity).sum();
+
+        // Update inventory stock level
+        self.update_stock_level(product_id, total_quantity, false)
+            .await?;
+
+        Ok(())
     }
 }
 
@@ -547,6 +630,215 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         // Return updated inventory item
         self.to_inventory_item(&product, Some(&updated_inventory))
             .await
+    }
+
+    async fn add_batch(&self, params: BatchCreateParams) -> Result<BatchItem, ServiceError> {
+        // Verify product exists
+        let _product = Product::find_by_id(params.product_id.clone())
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Product with ID {} not found", params.product_id))
+            })?;
+
+        // Create new batch
+        let batch_model = db_entity::inventory_batch::ActiveModel {
+            id: Set(Uuid::now_v7()),
+            product_id: Set(params.product_id.clone().into()),
+            batch_number: Set(params.batch_number),
+            quantity: Set(params.quantity),
+            manufacturing_date: Set(params.manufacturing_date),
+            expiry_date: Set(params.expiry_date),
+            purchase_price: Set(
+                Decimal::from_f64(params.purchase_price).unwrap_or(Decimal::new(0, 0))
+            ),
+            notes: Set(params.notes),
+            created_at: Set(Utc::now()),
+            updated_at: Set(Utc::now()),
+        };
+
+        // Insert batch
+        let batch = batch_model.insert(&*self.db).await?;
+
+        // Update total stock level
+        self.update_product_stock_level(params.product_id).await?;
+
+        // Convert to DTO
+        self.to_batch_item(&batch).await
+    }
+
+    async fn update_batch(&self, params: BatchUpdateParams) -> Result<BatchItem, ServiceError> {
+        // Find batch
+        let batch = db_entity::inventory_batch::Entity::find_by_id(params.id.clone())
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Batch with ID {} not found", params.id))
+            })?;
+
+        // Update batch
+        let mut batch_model = batch.into_active_model();
+
+        if let Some(quantity) = params.quantity {
+            batch_model.quantity = Set(quantity);
+        }
+
+        if let Some(manufacturing_date) = params.manufacturing_date {
+            batch_model.manufacturing_date = Set(Some(manufacturing_date));
+        }
+
+        if let Some(expiry_date) = params.expiry_date {
+            batch_model.expiry_date = Set(Some(expiry_date));
+        }
+
+        if let Some(purchase_price) = params.purchase_price {
+            batch_model.purchase_price =
+                Set(Decimal::from_f64(purchase_price).unwrap_or(Decimal::new(0, 0)));
+        }
+
+        if let Some(notes) = params.notes {
+            batch_model.notes = Set(Some(notes));
+        }
+
+        batch_model.updated_at = Set(Utc::now());
+
+        // Save changes
+        let updated_batch = batch_model.update(&*self.db).await?;
+
+        // Update total stock level
+        self.update_product_stock_level(updated_batch.product_id.into())
+            .await?;
+
+        // Convert to DTO
+        self.to_batch_item(&updated_batch).await
+    }
+
+    async fn get_batch(&self, batch_id: DbId) -> Result<Option<BatchItem>, ServiceError> {
+        // Find batch
+        let batch = db_entity::inventory_batch::Entity::find_by_id(batch_id)
+            .one(&*self.db)
+            .await?;
+
+        // Convert to DTO if found
+        match batch {
+            Some(batch) => {
+                let batch_item = self.to_batch_item(&batch).await?;
+                Ok(Some(batch_item))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn list_batches_by_product(
+        &self,
+        product_id: DbId,
+    ) -> Result<Vec<BatchItem>, ServiceError> {
+        let id: Uuid = product_id.into();
+        // Find all batches for product
+        let batches = db_entity::inventory_batch::Entity::find()
+            .filter(db_entity::inventory_batch::Column::ProductId.eq(id))
+            .order_by_desc(db_entity::inventory_batch::Column::ExpiryDate)
+            .all(&*self.db)
+            .await?;
+
+        // Convert to DTOs
+        let mut batch_items = Vec::new();
+        for batch in batches {
+            let batch_item = self.to_batch_item(&batch).await?;
+            batch_items.push(batch_item);
+        }
+
+        Ok(batch_items)
+    }
+
+    async fn record_batch_transaction(
+        &self,
+        params: BatchTransactionParams,
+    ) -> Result<(), ServiceError> {
+        // Find batch
+        let batch = db_entity::inventory_batch::Entity::find_by_id(params.batch_id.clone())
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Batch with ID {} not found", params.batch_id))
+            })?;
+
+        // Calculate new quantity
+        let current_quantity = batch.quantity;
+        let new_quantity = match params.transaction_type.as_str() {
+            "purchase" | "adjustment_add" => {
+                if params.quantity < 0 {
+                    return Err(ServiceError::InvalidValue(
+                        "Quantity must be positive for purchase or add adjustment".to_string(),
+                    ));
+                }
+                current_quantity.saturating_add(params.quantity as u32)
+            }
+            "sale" | "adjustment_remove" => {
+                if params.quantity < 0 {
+                    return Err(ServiceError::InvalidValue(
+                        "Quantity must be positive for sale or remove adjustment".to_string(),
+                    ));
+                }
+                current_quantity.saturating_sub(params.quantity as u32)
+            }
+            _ => {
+                return Err(ServiceError::InvalidValue(format!(
+                    "Invalid transaction type: {}",
+                    params.transaction_type
+                )));
+            }
+        };
+
+        // Update batch quantity
+        let mut batch_model = batch.clone().into_active_model();
+        batch_model.quantity = Set(new_quantity);
+        batch_model.updated_at = Set(Utc::now());
+
+        // Update notes if provided
+        if let Some(note) = params.notes {
+            batch_model.notes = Set(Some(note));
+        }
+
+        // Save changes
+        batch_model.update(&*self.db).await?;
+
+        // Update total stock level
+        self.update_product_stock_level(batch.product_id.into())
+            .await?;
+
+        Ok(())
+    }
+
+    async fn get_expiring_batches(&self, days: u32) -> Result<Vec<BatchItem>, ServiceError> {
+        // Calculate expiry threshold date
+        let now = Utc::now().naive_utc().date();
+        let threshold_date = now + chrono::Duration::days(days as i64);
+
+        // Find batches expiring within the threshold
+        let batches = db_entity::inventory_batch::Entity::find()
+            .filter(
+                db_entity::inventory_batch::Column::ExpiryDate
+                    .is_not_null()
+                    .and(
+                        db_entity::inventory_batch::Column::ExpiryDate
+                            .lte(threshold_date)
+                            .and(db_entity::inventory_batch::Column::ExpiryDate.gte(now)),
+                    )
+                    .and(db_entity::inventory_batch::Column::Quantity.gt(0)),
+            )
+            .order_by_asc(db_entity::inventory_batch::Column::ExpiryDate)
+            .all(&*self.db)
+            .await?;
+
+        // Convert to DTOs
+        let mut batch_items = Vec::new();
+        for batch in batches {
+            let batch_item = self.to_batch_item(&batch).await?;
+            batch_items.push(batch_item);
+        }
+
+        Ok(batch_items)
     }
 }
 

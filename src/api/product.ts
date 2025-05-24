@@ -250,7 +250,7 @@ export async function filterProducts(
 /**
  * React Query hook for getting a product by ID
  */
-export function useProduct(id: string | null) {
+export function useGetProduct(id: string | null) {
   return useQuery({
     queryKey: ['product', id],
     queryFn: () => (id ? getProductById(id) : null),
