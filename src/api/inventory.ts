@@ -50,7 +50,7 @@ export type UpdateInventoryRequest = z.infer<typeof UpdateInventoryRequestSchema
 
 export const StockTransactionRequestSchema = z.object({
   productId: z.string().uuid('Invalid product ID'),
-  quantity: z.number().int().nonzero('Quantity must be non-zero'),
+  quantity: z.number().int().positive('Quantity must be positive'),
   transactionType: z.enum([
     'purchase',
     'sale',

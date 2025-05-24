@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use db_entity::utils::db_id::DbId;
+use db_entity::{
+    product::dto::{CreateProductParams, UpdateProductParams},
+    utils::db_id::DbId,
+};
 use db_service::ServiceManager;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -75,17 +78,17 @@ pub async fn create_product(
     let category = parse_product_category(&request.category)?;
 
     let product = product_repository
-        .create_product(
-            request.name,
-            request.generic_name,
-            request.description,
+        .create_product(CreateProductParams {
+            name: request.name,
+            generic_name: request.generic_name,
+            description: request.description,
             category,
-            request.dosage_form,
-            request.strength,
-            request.manufacturer,
-            request.barcode,
-            request.active_ingredients,
-        )
+            dosage_form: request.dosage_form,
+            strength: request.strength,
+            manufacturer: request.manufacturer,
+            barcode: request.barcode,
+            active_ingredients: request.active_ingredients,
+        })
         .await
         .map_err(|e| e.to_string())?;
 
@@ -109,18 +112,18 @@ pub async fn update_product(
     };
 
     let product = product_repository
-        .update_product(
+        .update_product(UpdateProductParams {
             id,
-            request.name,
-            request.generic_name,
-            request.description,
+            name: request.name,
+            generic_name: request.generic_name,
+            description: request.description,
             category,
-            request.dosage_form,
-            request.strength,
-            request.manufacturer,
-            request.barcode,
-            request.active_ingredients,
-        )
+            dosage_form: request.dosage_form,
+            strength: request.strength,
+            manufacturer: request.manufacturer,
+            barcode: request.barcode,
+            active_ingredients: request.active_ingredients,
+        })
         .await
         .map_err(|e| e.to_string())?;
 

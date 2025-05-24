@@ -1,10 +1,13 @@
 use async_trait::async_trait;
-use db_entity::{Product, ProductCategory, ProductModel, utils::db_id::DbId};
+use db_entity::{
+    Product, ProductCategory, ProductModel,
+    product::dto::{CreateProductParams, UpdateProductParams},
+    utils::db_id::DbId,
+};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
     QueryFilter, QueryOrder, Set,
 };
-use serde_json::Value as JsonValue;
 use std::sync::Arc;
 
 use crate::error::ServiceError;
@@ -15,30 +18,13 @@ pub trait ProductRepository: Send + Sync {
     /// Create a new product
     async fn create_product(
         &self,
-        name: String,
-        generic_name: Option<String>,
-        description: Option<String>,
-        category: ProductCategory,
-        dosage_form: String,
-        strength: String,
-        manufacturer: String,
-        barcode: Option<String>,
-        active_ingredients: JsonValue,
+        params: CreateProductParams,
     ) -> Result<ProductModel, ServiceError>;
 
     /// Update an existing product
     async fn update_product(
         &self,
-        id: DbId,
-        name: Option<String>,
-        generic_name: Option<String>,
-        description: Option<String>,
-        category: Option<ProductCategory>,
-        dosage_form: Option<String>,
-        strength: Option<String>,
-        manufacturer: Option<String>,
-        barcode: Option<String>,
-        active_ingredients: Option<JsonValue>,
+        params: UpdateProductParams,
     ) -> Result<ProductModel, ServiceError>;
 
     /// Delete a product by ID
@@ -90,16 +76,19 @@ impl SeaOrmProductRepository {
 impl ProductRepository for SeaOrmProductRepository {
     async fn create_product(
         &self,
-        name: String,
-        generic_name: Option<String>,
-        description: Option<String>,
-        category: ProductCategory,
-        dosage_form: String,
-        strength: String,
-        manufacturer: String,
-        barcode: Option<String>,
-        active_ingredients: JsonValue,
+        params: CreateProductParams,
     ) -> Result<ProductModel, ServiceError> {
+        let CreateProductParams {
+            name,
+            generic_name,
+            description,
+            category,
+            dosage_form,
+            strength,
+            manufacturer,
+            barcode,
+            active_ingredients,
+        } = params;
         // Check if product with same name already exists
         if self.get_product_by_name(&name).await?.is_some() {
             return Err(ServiceError::DuplicateEntry(format!(
@@ -139,17 +128,21 @@ impl ProductRepository for SeaOrmProductRepository {
 
     async fn update_product(
         &self,
-        id: DbId,
-        name: Option<String>,
-        generic_name: Option<String>,
-        description: Option<String>,
-        category: Option<ProductCategory>,
-        dosage_form: Option<String>,
-        strength: Option<String>,
-        manufacturer: Option<String>,
-        barcode: Option<String>,
-        active_ingredients: Option<JsonValue>,
+        params: UpdateProductParams,
     ) -> Result<ProductModel, ServiceError> {
+        let UpdateProductParams {
+            id,
+            name,
+            generic_name,
+            description,
+            category,
+            dosage_form,
+            strength,
+            manufacturer,
+            barcode,
+            active_ingredients,
+        } = params;
+
         // Find product by ID
         let product = Product::find_by_id(id.clone())
             .one(&*self.db)
@@ -307,7 +300,9 @@ mod tests {
     #[tokio::test]
     async fn test_create_product() {
         // Create a mock product that will be returned after insertion
-        let product_id = DbId::from_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f").unwrap().into();
+        let product_id = DbId::from_str("01890289-8b6e-7cc3-98c4-dc0c0c07398f")
+            .unwrap()
+            .into();
         let now = chrono::Utc::now().into();
         let mock_product = ProductModel {
             id: product_id,
@@ -335,17 +330,17 @@ mod tests {
 
         // Test creating a product
         let result = repo
-            .create_product(
-                "Test Product".to_string(),
-                Some("Generic Test".to_string()),
-                Some("Test description".to_string()),
-                ProductCategory::OTC,
-                "Tablet".to_string(),
-                "500mg".to_string(),
-                "Test Manufacturer".to_string(),
-                Some("1234567890".to_string()),
-                json!(["ingredient1", "ingredient2"]),
-            )
+            .create_product(CreateProductParams {
+                name: "Test Product".to_string(),
+                generic_name: Some("Generic Test".to_string()),
+                description: Some("Test description".to_string()),
+                category: ProductCategory::OTC,
+                dosage_form: "Tablet".to_string(),
+                strength: "500mg".to_string(),
+                manufacturer: "Test Manufacturer".to_string(),
+                barcode: Some("1234567890".to_string()),
+                active_ingredients: json!(["ingredient1", "ingredient2"]),
+            })
             .await;
 
         assert!(result.is_ok());
@@ -358,7 +353,3 @@ mod tests {
         }
     }
 }
-
-
-
-

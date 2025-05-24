@@ -28,8 +28,8 @@ export interface FilterOptions {
     to: Date | undefined;
   };
   priceRange?: {
-    min: number;
-    max: number;
+    min: number | undefined;
+    max: number | undefined;
   };
   selectedCategories: string[];
   selectedManufacturers: string[];

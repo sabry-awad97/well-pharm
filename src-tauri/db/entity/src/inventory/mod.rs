@@ -7,6 +7,8 @@ use uuid::Uuid;
 
 use crate::product::Entity as Product;
 
+pub mod dto;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "inventory")]
 pub struct Model {

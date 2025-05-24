@@ -31,7 +31,7 @@ export function DialogContainer({
   description,
   isLoading,
   isSubmitting,
-  isReadOnly,
+  isReadOnly: _,
   onSubmit,
   mode,
   children,

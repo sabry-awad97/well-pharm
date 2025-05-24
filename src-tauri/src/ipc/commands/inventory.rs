@@ -1,3 +1,4 @@
+use db_entity::inventory::dto::InventoryItemUpdateParams;
 use db_entity::utils::db_id::DbId;
 use db_service::ServiceManager;
 use serde::{Deserialize, Serialize};
@@ -235,20 +236,20 @@ pub async fn update_inventory_item(
 
     // Update inventory item
     let updated_item = inventory_service
-        .create_or_update_inventory_item(
-            product_id,
-            request.stock_level.unwrap_or(current_item.stock_level),
-            request.threshold.unwrap_or(current_item.threshold),
-            request.supplier,
-            request.reorder_amount,
-            request.unit,
-            request.notes,
-            request.expiry_date,
-            request
+        .create_or_update_inventory_item(InventoryItemUpdateParams {
+            product_id: product_id.clone(),
+            stock_level: request.stock_level.unwrap_or(current_item.stock_level),
+            threshold: request.threshold.unwrap_or(current_item.threshold),
+            supplier: request.supplier,
+            reorder_amount: request.reorder_amount,
+            unit: request.unit,
+            notes: request.notes,
+            expiry_date: request.expiry_date,
+            purchase_price: request
                 .purchase_price
                 .unwrap_or(current_item.purchase_price),
-            request.selling_price.unwrap_or(current_item.selling_price),
-        )
+            selling_price: request.selling_price.unwrap_or(current_item.selling_price),
+        })
         .await
         .map_err(|e| e.to_string())?;
 

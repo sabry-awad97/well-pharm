@@ -8,6 +8,8 @@ use sea_orm::{ActiveValue::Set, ConnectionTrait, DbErr};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
+pub mod dto;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "products")]
 pub struct Model {

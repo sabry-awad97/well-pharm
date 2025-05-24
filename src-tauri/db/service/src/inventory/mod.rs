@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
+use db_entity::inventory::dto::InventoryItemUpdateParams;
 use db_entity::utils::db_id::DbId;
 use db_entity::{Inventory, InventoryModel, Product, ProductModel};
 use rust_decimal::Decimal;
@@ -82,16 +83,7 @@ pub trait InventoryRepository: Send + Sync {
     /// Create or update inventory item
     async fn create_or_update_inventory_item(
         &self,
-        product_id: DbId,
-        stock_level: u32,
-        threshold: u32,
-        supplier: Option<String>,
-        reorder_amount: Option<u32>,
-        unit: Option<String>,
-        notes: Option<String>,
-        expiry_date: Option<String>,
-        purchase_price: f64,
-        selling_price: f64,
+        params: InventoryItemUpdateParams,
     ) -> Result<InventoryItem, ServiceError>;
 }
 
@@ -221,7 +213,9 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone())
+            .one(&*self.db)
+            .await?;
 
         let mut inventory_model = match inventory {
             Some(model) => model.into_active_model(),
@@ -274,7 +268,10 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         product_id: DbId,
     ) -> Result<Option<InventoryItem>, ServiceError> {
         // Find the product
-        let product = match Product::find_by_id(product_id.clone()).one(&*self.db).await? {
+        let product = match Product::find_by_id(product_id.clone())
+            .one(&*self.db)
+            .await?
+        {
             Some(p) => p,
             None => return Ok(None),
         };
@@ -331,7 +328,9 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone())
+            .one(&*self.db)
+            .await?;
 
         let mut inventory_model = match inventory {
             Some(model) => model.into_active_model(),
@@ -425,7 +424,9 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone())
+            .one(&*self.db)
+            .await?;
 
         let mut inventory_model = match inventory {
             Some(model) => model.into_active_model(),
@@ -465,17 +466,21 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
     async fn create_or_update_inventory_item(
         &self,
-        product_id: DbId,
-        stock_level: u32,
-        threshold: u32,
-        supplier: Option<String>,
-        reorder_amount: Option<u32>,
-        unit: Option<String>,
-        notes: Option<String>,
-        expiry_date: Option<String>,
-        purchase_price: f64,
-        selling_price: f64,
+        params: InventoryItemUpdateParams,
     ) -> Result<InventoryItem, ServiceError> {
+        let InventoryItemUpdateParams {
+            product_id,
+            stock_level,
+            threshold,
+            supplier,
+            reorder_amount,
+            unit,
+            notes,
+            expiry_date,
+            purchase_price,
+            selling_price,
+        } = params;
+
         // Find the product
         let product = Product::find_by_id(product_id.clone())
             .one(&*self.db)
@@ -485,7 +490,9 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone())
+            .one(&*self.db)
+            .await?;
 
         let mut inventory_model = match inventory {
             Some(ref model) => {
@@ -614,7 +621,7 @@ mod tests {
         // Create test data
         let product = create_test_product();
         let inventory = create_test_inventory();
-        let product_id: DbId = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -647,7 +654,7 @@ mod tests {
             inv.stock_history = Some(json!([50, 75]));
             inv
         };
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -677,7 +684,7 @@ mod tests {
             inv.selling_price = Decimal::from_str("18.75").unwrap();
             inv
         };
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -710,7 +717,7 @@ mod tests {
             inv.stock_history = Some(json!([50, 60]));
             inv
         };
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -733,7 +740,7 @@ mod tests {
         // Create test data
         let product = create_test_product();
         let inventory = create_test_inventory();
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -772,7 +779,7 @@ mod tests {
             inv.selling_price = Decimal::from_str("30.00").unwrap();
             inv
         };
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -785,18 +792,18 @@ mod tests {
 
         // Test create_or_update_inventory_item
         let result = repo
-            .create_or_update_inventory_item(
+            .create_or_update_inventory_item(InventoryItemUpdateParams {
                 product_id,
-                100,
-                20,
-                Some("New Supplier".to_string()),
-                Some(30),
-                Some("Box".to_string()),
-                Some("Updated notes".to_string()),
-                Some("2025-12-31".to_string()),
-                20.00,
-                30.00,
-            )
+                stock_level: 100,
+                threshold: 20,
+                supplier: Some("New Supplier".to_string()),
+                reorder_amount: Some(30),
+                unit: Some("Box".to_string()),
+                notes: Some("Updated notes".to_string()),
+                expiry_date: Some("2025-12-31".to_string()),
+                purchase_price: 20.00,
+                selling_price: 30.00,
+            })
             .await;
         assert!(result.is_ok());
 
@@ -813,7 +820,7 @@ mod tests {
         // Create test data
         let product = create_test_product();
         let new_inventory = create_test_inventory();
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id: DbId = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -826,18 +833,18 @@ mod tests {
 
         // Test create_or_update_inventory_item for new item
         let result = repo
-            .create_or_update_inventory_item(
-                product_id,
-                50,
-                10,
-                Some("Test Supplier".to_string()),
-                Some(20),
-                Some("Box".to_string()),
-                Some("Test notes".to_string()),
-                Some("2025-12-31".to_string()),
-                10.50,
-                15.75,
-            )
+            .create_or_update_inventory_item(InventoryItemUpdateParams {
+                product_id: product_id.clone(),
+                stock_level: 50,
+                threshold: 10,
+                supplier: Some("Test Supplier".to_string()),
+                reorder_amount: Some(20),
+                unit: Some("Box".to_string()),
+                notes: Some("Test notes".to_string()),
+                expiry_date: Some("2025-12-31".to_string()),
+                purchase_price: 10.50,
+                selling_price: 15.75,
+            })
             .await;
         assert!(result.is_ok());
 
@@ -879,7 +886,7 @@ mod tests {
     async fn test_invalid_expiry_date() {
         // Create test data
         let product = create_test_product();
-        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap();
 
         // Mock database
         let db = MockDatabase::new(DatabaseBackend::Postgres)
@@ -891,18 +898,18 @@ mod tests {
 
         // Test with invalid expiry date format
         let result = repo
-            .create_or_update_inventory_item(
-                product_id,
-                50,
-                10,
-                None,
-                None,
-                None,
-                None,
-                Some("invalid-date".to_string()),
-                10.0,
-                15.0,
-            )
+            .create_or_update_inventory_item(InventoryItemUpdateParams {
+                product_id: product_id.clone(),
+                stock_level: 50,
+                threshold: 10,
+                supplier: Some("Test Supplier".to_string()),
+                reorder_amount: Some(20),
+                unit: Some("Box".to_string()),
+                notes: Some("Test notes".to_string()),
+                expiry_date: Some("Invalid Date".to_string()), // Invalid date
+                purchase_price: 10.50,
+                selling_price: 15.75,
+            })
             .await;
 
         assert!(result.is_err());
