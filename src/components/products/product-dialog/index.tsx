@@ -2,7 +2,7 @@ import {
   CreateProductRequestSchema,
   UpdateProductRequestSchema,
   useCreateProduct,
-  useProduct,
+  useGetProduct,
   useUpdateProduct,
 } from '@/api/product';
 import { DebugPanel } from '@/components/debug/debug-panel';
@@ -46,7 +46,7 @@ export function ProductDialog({
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   // Data fetching and mutations
-  const { data: product, isLoading: isLoadingProduct } = useProduct(
+  const { data: product, isLoading: isLoadingProduct } = useGetProduct(
     mode !== 'create' ? (productId ?? null) : null,
   );
   const { mutate: createProduct, isPending: isCreating } = useCreateProduct();

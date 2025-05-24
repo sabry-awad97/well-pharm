@@ -12,7 +12,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useMatches, useNavigate } from '@tanstack/react-router';
+import { useMatches, useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronLeft,
@@ -26,6 +26,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { type NavItemType, navItems } from '../nav-items';
+import NavSection from './nav-section';
 
 // Animation variants for sidebar elements
 const sidebarAnimationVariants = {
@@ -34,8 +35,8 @@ const sidebarAnimationVariants = {
     visible: { opacity: 1, x: 0, transition: { duration: 0.3, delay: 0.1 } },
   },
   container: {
-    collapsed: { width: 70, transition: { duration: 0.3, ease: 'easeInOut' } },
-    expanded: { width: 220, transition: { duration: 0.3, ease: 'easeInOut' } }, // Reduced from 240px to 220px
+    collapsed: { width: 60, transition: { duration: 0.3, ease: 'easeInOut' } }, // Reduced from 70px to 60px
+    expanded: { width: 200, transition: { duration: 0.3, ease: 'easeInOut' } }, // Reduced from 220px to 200px
   },
   footer: {
     collapsed: { justifyContent: 'center', transition: { duration: 0.3 } },
@@ -52,135 +53,6 @@ const sidebarAnimationVariants = {
   },
 };
 
-// Interface for NavItem props with improved typing
-interface NavItemProps {
-  item: NavItemType;
-  isActive: boolean;
-  isCollapsed: boolean;
-  onClick?: () => void;
-  tabIndex: number;
-}
-
-/**
- * NavItem component - Renders a single navigation item with proper accessibility
- */
-const NavItem = ({
-  item,
-  isActive,
-  isCollapsed,
-  onClick,
-  tabIndex,
-}: NavItemProps) => {
-  const Icon = item.icon;
-
-  // Handle keyboard navigation
-  const handleKeyDown: React.KeyboardEventHandler<HTMLAnchorElement> = e => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onClick?.();
-    }
-  };
-
-  return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            to={item.to}
-            className={cn(
-              'group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200',
-              isActive
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              isCollapsed && 'justify-center px-2',
-              'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
-            )}
-            onClick={onClick}
-            onKeyDown={handleKeyDown}
-            tabIndex={tabIndex}
-            aria-current={isActive ? 'page' : undefined}
-          >
-            {isActive && (
-              <motion.div
-                layoutId="activeIndicator"
-                className="bg-primary absolute top-0 bottom-0 left-0 w-0.5 rounded-full"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
-              />
-            )}
-            <motion.div
-              whileHover={!isActive ? 'hover' : undefined}
-              variants={sidebarAnimationVariants.navItem}
-              className={cn(
-                'flex h-5 w-5 items-center justify-center transition-transform',
-                !isActive && 'group-hover:text-foreground',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </motion.div>
-            {!isCollapsed && (
-              <span className="truncate text-sm">{item.label}</span>
-            )}
-            {item.badge && !isCollapsed && (
-              <span className="bg-primary/10 text-primary ml-auto flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium">
-                {item.badge}
-              </span>
-            )}
-          </Link>
-        </TooltipTrigger>
-        {isCollapsed && (
-          <TooltipContent side="right">{item.label}</TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
-  );
-};
-
-// Interface for NavSection props
-interface NavSectionProps {
-  title: string;
-  items: NavItemType[];
-  isCollapsed: boolean;
-  isActive: (path: string) => boolean;
-  onClick?: () => void;
-  startTabIndex: number;
-}
-
-/**
- * NavSection component - Groups related navigation items
- */
-const NavSection = ({
-  title,
-  items,
-  isCollapsed,
-  isActive,
-  onClick,
-  startTabIndex,
-}: NavSectionProps) => {
-  return (
-    <div className="mb-2">
-      {!isCollapsed && (
-        <h3 className="text-muted-foreground mb-1 px-3 text-xs font-medium">
-          {title}
-        </h3>
-      )}
-      <div className="grid gap-0.5">
-        {items.map((item, index) => (
-          <NavItem
-            key={item.to}
-            item={item}
-            isActive={isActive(item.to)}
-            isCollapsed={isCollapsed}
-            onClick={onClick}
-            tabIndex={startTabIndex + index}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // Interface for SidebarProps
 interface SidebarProps {
   className?: string;
@@ -188,12 +60,16 @@ interface SidebarProps {
 
 /**
  * Enhanced Sidebar component with improved visual design and UX
+ * Now supports nested navigation items
  */
 export function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [favoriteItems, setFavoriteItems] = useState<NavItemType[]>([]);
+  const [expandedParents, setExpandedParents] = useState<
+    Record<string, boolean>
+  >({});
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -213,10 +89,25 @@ export function Sidebar({ className }: SidebarProps) {
 
   // Filter navigation items based on search query
   const filteredNavItems = searchQuery
-    ? navItems.filter(item =>
-        item.label.toLowerCase().includes(searchQuery.toLowerCase()),
+    ? navItems.filter(
+        item =>
+          item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.children?.some(child =>
+            child.label.toLowerCase().includes(searchQuery.toLowerCase()),
+          ) ||
+          item.keywords?.some(keyword =>
+            keyword.toLowerCase().includes(searchQuery.toLowerCase()),
+          ),
       )
     : navItems;
+
+  // Toggle submenu expanded/collapsed state
+  const toggleSubmenu = (item: NavItemType) => {
+    setExpandedParents(prev => ({
+      ...prev,
+      [item.to]: !prev[item.to],
+    }));
+  };
 
   // Get user initials for avatar fallback
   const getUserInitials = () => {
@@ -246,11 +137,20 @@ export function Sidebar({ className }: SidebarProps) {
   const currentRoute =
     matches.length > 0 ? matches[matches.length - 1].pathname : '/';
 
-  // Fix the isActive function to ensure only exact matching routes are highlighted
+  // Fix the isActive function to handle nested routes
   const isActive = (path: string) => {
     // Special case for dashboard - only active when path is exactly '/'
     if (path === '/') {
       return currentRoute === '/';
+    }
+
+    // For parent items with children, check if any child is active
+    const navItem = navItems.find(item => item.to === path);
+    if (navItem?.children) {
+      return navItem.children.some(
+        child =>
+          currentRoute === child.to || currentRoute.startsWith(`${child.to}/`),
+      );
     }
 
     // For other routes, check if the current route starts with the path
@@ -267,6 +167,30 @@ export function Sidebar({ className }: SidebarProps) {
 
     return false;
   };
+
+  // Auto-expand parent items when a child is active
+  useEffect(() => {
+    const newExpandedState: Record<string, boolean> = {};
+
+    for (const item of navItems) {
+      if (item.children) {
+        const isChildActive = item.children.some(
+          child =>
+            currentRoute === child.to ||
+            currentRoute.startsWith(`${child.to}/`),
+        );
+
+        if (isChildActive) {
+          newExpandedState[item.to] = true;
+        }
+      }
+    }
+
+    setExpandedParents(prev => ({
+      ...prev,
+      ...newExpandedState,
+    }));
+  }, [currentRoute]);
 
   // Handle keyboard shortcut to focus search
   useEffect(() => {
@@ -444,7 +368,9 @@ export function Sidebar({ className }: SidebarProps) {
         )}
       >
         {/* Header section */}
-        <div className="flex h-14 items-center border-b px-3">
+        <div className="flex h-12 items-center border-b px-2.5">
+          {' '}
+          {/* Reduced height */}
           <AnimatePresence initial={false}>
             {!isCollapsed ? (
               <motion.div
@@ -452,9 +378,10 @@ export function Sidebar({ className }: SidebarProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex items-center gap-2 font-semibold"
+                className="flex items-center gap-1.5 text-sm font-semibold"
               >
-                <Pill className="text-primary h-5 w-5" />
+                <Pill className="text-primary h-4 w-4" />{' '}
+                {/* Reduced icon size */}
                 <span>WellPharm</span>
               </motion.div>
             ) : (
@@ -465,7 +392,8 @@ export function Sidebar({ className }: SidebarProps) {
                 exit={{ opacity: 0 }}
                 className="flex w-full justify-center"
               >
-                <Pill className="text-primary h-6 w-6" />
+                <Pill className="text-primary h-5 w-5" />{' '}
+                {/* Reduced icon size */}
               </motion.div>
             )}
           </AnimatePresence>
@@ -513,6 +441,8 @@ export function Sidebar({ className }: SidebarProps) {
               isCollapsed={isCollapsed}
               isActive={isActive}
               onClick={() => !isDesktop && setIsMobileOpen(false)}
+              onToggleSubmenu={toggleSubmenu}
+              expandedParents={expandedParents}
               startTabIndex={1}
             />
           )}
@@ -524,6 +454,8 @@ export function Sidebar({ className }: SidebarProps) {
             isCollapsed={isCollapsed}
             isActive={isActive}
             onClick={() => !isDesktop && setIsMobileOpen(false)}
+            onToggleSubmenu={toggleSubmenu}
+            expandedParents={expandedParents}
             startTabIndex={10}
           />
 
@@ -535,6 +467,8 @@ export function Sidebar({ className }: SidebarProps) {
               isCollapsed={isCollapsed}
               isActive={isActive}
               onClick={() => !isDesktop && setIsMobileOpen(false)}
+              onToggleSubmenu={toggleSubmenu}
+              expandedParents={expandedParents}
               startTabIndex={20}
             />
           )}
@@ -547,6 +481,8 @@ export function Sidebar({ className }: SidebarProps) {
               isCollapsed={isCollapsed}
               isActive={isActive}
               onClick={() => !isDesktop && setIsMobileOpen(false)}
+              onToggleSubmenu={toggleSubmenu}
+              expandedParents={expandedParents}
               startTabIndex={30}
             />
           )}
@@ -556,8 +492,8 @@ export function Sidebar({ className }: SidebarProps) {
         <div className="border-t">
           <motion.div
             className={cn(
-              'flex items-center rounded-md p-2',
-              isCollapsed ? 'justify-center' : 'px-3 py-2',
+              'flex items-center rounded-md p-1.5',
+              isCollapsed ? 'justify-center' : 'px-2.5 py-1.5',
             )}
             variants={sidebarAnimationVariants.footer}
             initial={false}

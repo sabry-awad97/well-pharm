@@ -336,3 +336,13 @@ export function useDeleteProduct() {
     },
   });
 }
+
+/**
+ * React Query hook for fetching all products
+ */
+export function useGetProducts() {
+  return useQuery({
+    queryKey: ['products', 'all'],
+    queryFn: fetchAllProducts,
+  });
+}

@@ -10,11 +10,15 @@
 
 // Import Routes
 
-import { Route as rootRoute } from './routes/__root';
-import { Route as OnboardingImport } from './routes/onboarding';
-import { Route as LoginImport } from './routes/login';
-import { Route as IndexImport } from './routes/index';
-import { Route as ProductsIndexImport } from './routes/products/index';
+import { Route as rootRoute } from './routes/__root'
+import { Route as OnboardingImport } from './routes/onboarding'
+import { Route as LoginImport } from './routes/login'
+import { Route as IndexImport } from './routes/index'
+import { Route as ProductsIndexImport } from './routes/products/index'
+import { Route as InventoryIndexImport } from './routes/inventory/index'
+import { Route as InventoryTrendsImport } from './routes/inventory/trends'
+import { Route as InventoryManagementImport } from './routes/inventory/management'
+import { Route as InventoryExpiringImport } from './routes/inventory/expiring'
 
 // Create/Update Routes
 
@@ -22,111 +26,208 @@ const OnboardingRoute = OnboardingImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const LoginRoute = LoginImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const ProductsIndexRoute = ProductsIndexImport.update({
   id: '/products/',
   path: '/products/',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
+
+const InventoryIndexRoute = InventoryIndexImport.update({
+  id: '/inventory/',
+  path: '/inventory/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const InventoryTrendsRoute = InventoryTrendsImport.update({
+  id: '/inventory/trends',
+  path: '/inventory/trends',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const InventoryManagementRoute = InventoryManagementImport.update({
+  id: '/inventory/management',
+  path: '/inventory/management',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const InventoryExpiringRoute = InventoryExpiringImport.update({
+  id: '/inventory/expiring',
+  path: '/inventory/expiring',
+  getParentRoute: () => rootRoute,
+} as any)
 
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexImport;
-      parentRoute: typeof rootRoute;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
     '/login': {
-      id: '/login';
-      path: '/login';
-      fullPath: '/login';
-      preLoaderRoute: typeof LoginImport;
-      parentRoute: typeof rootRoute;
-    };
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginImport
+      parentRoute: typeof rootRoute
+    }
     '/onboarding': {
-      id: '/onboarding';
-      path: '/onboarding';
-      fullPath: '/onboarding';
-      preLoaderRoute: typeof OnboardingImport;
-      parentRoute: typeof rootRoute;
-    };
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingImport
+      parentRoute: typeof rootRoute
+    }
+    '/inventory/expiring': {
+      id: '/inventory/expiring'
+      path: '/inventory/expiring'
+      fullPath: '/inventory/expiring'
+      preLoaderRoute: typeof InventoryExpiringImport
+      parentRoute: typeof rootRoute
+    }
+    '/inventory/management': {
+      id: '/inventory/management'
+      path: '/inventory/management'
+      fullPath: '/inventory/management'
+      preLoaderRoute: typeof InventoryManagementImport
+      parentRoute: typeof rootRoute
+    }
+    '/inventory/trends': {
+      id: '/inventory/trends'
+      path: '/inventory/trends'
+      fullPath: '/inventory/trends'
+      preLoaderRoute: typeof InventoryTrendsImport
+      parentRoute: typeof rootRoute
+    }
+    '/inventory/': {
+      id: '/inventory/'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/products/': {
-      id: '/products/';
-      path: '/products';
-      fullPath: '/products';
-      preLoaderRoute: typeof ProductsIndexImport;
-      parentRoute: typeof rootRoute;
-    };
+      id: '/products/'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof ProductsIndexImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
 // Create and export the route tree
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/login': typeof LoginRoute;
-  '/onboarding': typeof OnboardingRoute;
-  '/products': typeof ProductsIndexRoute;
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/inventory/expiring': typeof InventoryExpiringRoute
+  '/inventory/management': typeof InventoryManagementRoute
+  '/inventory/trends': typeof InventoryTrendsRoute
+  '/inventory': typeof InventoryIndexRoute
+  '/products': typeof ProductsIndexRoute
 }
 
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/login': typeof LoginRoute;
-  '/onboarding': typeof OnboardingRoute;
-  '/products': typeof ProductsIndexRoute;
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/inventory/expiring': typeof InventoryExpiringRoute
+  '/inventory/management': typeof InventoryManagementRoute
+  '/inventory/trends': typeof InventoryTrendsRoute
+  '/inventory': typeof InventoryIndexRoute
+  '/products': typeof ProductsIndexRoute
 }
 
 export interface FileRoutesById {
-  __root__: typeof rootRoute;
-  '/': typeof IndexRoute;
-  '/login': typeof LoginRoute;
-  '/onboarding': typeof OnboardingRoute;
-  '/products/': typeof ProductsIndexRoute;
+  __root__: typeof rootRoute
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/inventory/expiring': typeof InventoryExpiringRoute
+  '/inventory/management': typeof InventoryManagementRoute
+  '/inventory/trends': typeof InventoryTrendsRoute
+  '/inventory/': typeof InventoryIndexRoute
+  '/products/': typeof ProductsIndexRoute
 }
 
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/login' | '/onboarding' | '/products';
-  fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/login' | '/onboarding' | '/products';
-  id: '__root__' | '/' | '/login' | '/onboarding' | '/products/';
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/inventory/expiring'
+    | '/inventory/management'
+    | '/inventory/trends'
+    | '/inventory'
+    | '/products'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/inventory/expiring'
+    | '/inventory/management'
+    | '/inventory/trends'
+    | '/inventory'
+    | '/products'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/inventory/expiring'
+    | '/inventory/management'
+    | '/inventory/trends'
+    | '/inventory/'
+    | '/products/'
+  fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  LoginRoute: typeof LoginRoute;
-  OnboardingRoute: typeof OnboardingRoute;
-  ProductsIndexRoute: typeof ProductsIndexRoute;
+  IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
+  InventoryExpiringRoute: typeof InventoryExpiringRoute
+  InventoryManagementRoute: typeof InventoryManagementRoute
+  InventoryTrendsRoute: typeof InventoryTrendsRoute
+  InventoryIndexRoute: typeof InventoryIndexRoute
+  ProductsIndexRoute: typeof ProductsIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  InventoryExpiringRoute: InventoryExpiringRoute,
+  InventoryManagementRoute: InventoryManagementRoute,
+  InventoryTrendsRoute: InventoryTrendsRoute,
+  InventoryIndexRoute: InventoryIndexRoute,
   ProductsIndexRoute: ProductsIndexRoute,
-};
+}
 
 export const routeTree = rootRoute
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
 /* ROUTE_MANIFEST_START
 {
@@ -137,6 +238,10 @@ export const routeTree = rootRoute
         "/",
         "/login",
         "/onboarding",
+        "/inventory/expiring",
+        "/inventory/management",
+        "/inventory/trends",
+        "/inventory/",
         "/products/"
       ]
     },
@@ -148,6 +253,18 @@ export const routeTree = rootRoute
     },
     "/onboarding": {
       "filePath": "onboarding.tsx"
+    },
+    "/inventory/expiring": {
+      "filePath": "inventory/expiring.tsx"
+    },
+    "/inventory/management": {
+      "filePath": "inventory/management.tsx"
+    },
+    "/inventory/trends": {
+      "filePath": "inventory/trends.tsx"
+    },
+    "/inventory/": {
+      "filePath": "inventory/index.tsx"
     },
     "/products/": {
       "filePath": "products/index.tsx"

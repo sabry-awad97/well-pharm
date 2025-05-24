@@ -1,13 +1,14 @@
 import {
   BarChart3,
+  Bell,
+  FileText,
   LayoutDashboard,
+  LineChart,
   Package,
   Pill,
   Settings,
-  Users,
-  Bell,
-  FileText,
   ShieldAlert,
+  Users,
 } from 'lucide-react';
 
 // Enhanced NavItem type with additional properties
@@ -18,6 +19,7 @@ export interface NavItemType {
   section?: 'main' | 'management' | 'system'; // Group items by section
   badge?: string | number; // Optional badge for notifications
   keywords?: string[]; // Additional search keywords
+  children?: NavItemType[]; // Submenu items
 }
 
 // Centralized navigation items configuration
@@ -34,6 +36,26 @@ export const navItems: NavItemType[] = [
     to: '/inventory',
     section: 'main',
     badge: '3', // Example notification badge
+    children: [
+      {
+        icon: Package,
+        label: 'Management',
+        to: '/inventory/management',
+        keywords: ['stock', 'products'],
+      },
+      {
+        icon: LineChart,
+        label: 'Trends',
+        to: '/inventory/trends',
+        keywords: ['analytics', 'charts'],
+      },
+      {
+        icon: Package,
+        label: 'Expiring',
+        to: '/inventory/expiring',
+        keywords: ['expiry', 'dates'],
+      },
+    ],
   },
   {
     icon: Package,
