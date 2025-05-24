@@ -13,6 +13,19 @@ import { Download, Save, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+interface PresetFilter {
+  id: string;
+  value: unknown;
+}
+
+interface TablePreset {
+  name: string;
+  columnVisibility: Record<string, boolean>;
+  sorting: { id: string; desc: boolean }[];
+  filters: PresetFilter[];
+  timestamp: string;
+}
+
 interface TableCustomizationProps {
   table: Table<Product>;
 }
@@ -50,13 +63,8 @@ export function TableCustomization({ table }: TableCustomizationProps) {
     setPresetName('');
   };
 
-  interface PresetFilter {
-    id: string;
-    value: unknown;
-  }
-
   // Load a preset
-  const loadPreset = (preset: any) => {
+  const loadPreset = (preset: TablePreset) => {
     table.setColumnVisibility(preset.columnVisibility);
     table.setSorting(preset.sorting);
     for (const filter of preset.filters as PresetFilter[]) {
@@ -180,9 +188,9 @@ export function TableCustomization({ table }: TableCustomizationProps) {
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Saved presets</DropdownMenuLabel>
           {JSON.parse(localStorage.getItem('productTablePresets') || '[]').map(
-            (preset: any, index: number) => (
+            (preset: TablePreset) => (
               <DropdownMenuCheckboxItem
-                key={index}
+                key={`${preset.name}-${preset.timestamp}`}
                 onSelect={() => loadPreset(preset)}
               >
                 {preset.name}

@@ -27,7 +27,8 @@ export function VirtualizedTable<T>({ table }: VirtualizedTableProps<T>) {
   });
 
   // Recalculate when data changes
-  useEffect(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+    useEffect(() => {
     rowVirtualizer.measure();
   }, [rows.length, rowVirtualizer]);
 

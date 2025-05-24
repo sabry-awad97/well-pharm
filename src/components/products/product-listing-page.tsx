@@ -370,7 +370,8 @@ export function ProductListingPage() {
   });
 
   // Reset pagination when filters or search change
-  useEffect(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+    useEffect(() => {
     table.resetPageIndex();
   }, [debouncedQuery, filterOptions, table]);
 

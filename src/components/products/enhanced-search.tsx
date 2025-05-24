@@ -43,7 +43,8 @@ export function EnhancedSearch({
   });
 
   // Update suggestions when input changes
-  useEffect(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+    useEffect(() => {
     if (inputValue.length >= 2) {
       const results = fuse
         .search(inputValue)

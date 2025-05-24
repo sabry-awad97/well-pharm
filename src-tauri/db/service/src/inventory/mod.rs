@@ -1,15 +1,17 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
+use db_entity::utils::db_id::DbId;
 use db_entity::{Inventory, InventoryModel, Product, ProductModel};
-use rust_decimal::prelude::ToPrimitive; // Add this import for Decimal conversion
+use rust_decimal::Decimal;
+use rust_decimal::prelude::{FromStr, ToPrimitive}; // For Decimal conversion
+use sea_orm::prelude::Expr;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder, Set,
+    ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder, Set, TryIntoModel,
 };
 use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::error::ServiceError;
 
@@ -17,7 +19,7 @@ use crate::error::ServiceError;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InventoryItem {
-    pub id: Uuid,
+    pub id: DbId,
     pub name: String,
     pub stock_level: u32,
     pub threshold: u32,
@@ -43,18 +45,18 @@ pub trait InventoryRepository: Send + Sync {
     /// Update stock level for an inventory item
     async fn update_stock_level(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         new_level: u32,
         record_history: bool,
     ) -> Result<InventoryItem, ServiceError>;
 
     /// Get current stock level for a product
-    async fn get_stock_level(&self, product_id: Uuid) -> Result<u32, ServiceError>;
+    async fn get_stock_level(&self, product_id: DbId) -> Result<u32, ServiceError>;
 
     /// Get inventory item by product ID
     async fn get_inventory_item(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
     ) -> Result<Option<InventoryItem>, ServiceError>;
 
     /// List all inventory items
@@ -63,7 +65,7 @@ pub trait InventoryRepository: Send + Sync {
     /// Record a stock transaction (purchase, sale, adjustment)
     async fn record_stock_transaction(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         quantity: i32,
         transaction_type: &str,
         notes: Option<String>,
@@ -72,7 +74,7 @@ pub trait InventoryRepository: Send + Sync {
     /// Update product prices
     async fn update_prices(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         purchase_price: Option<f64>,
         selling_price: Option<f64>,
     ) -> Result<InventoryItem, ServiceError>;
@@ -80,7 +82,7 @@ pub trait InventoryRepository: Send + Sync {
     /// Create or update inventory item
     async fn create_or_update_inventory_item(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         stock_level: u32,
         threshold: u32,
         supplier: Option<String>,
@@ -115,7 +117,7 @@ impl SeaOrmInventoryRepository {
             None => {
                 // Return default values if no inventory record exists
                 return Ok(InventoryItem {
-                    id: product.id,
+                    id: product.id.into(),
                     name: product.name.clone(),
                     stock_level: 0,
                     threshold: 10,
@@ -153,7 +155,7 @@ impl SeaOrmInventoryRepository {
         let selling_price = inventory.selling_price.to_f64().unwrap_or(0.0);
 
         Ok(InventoryItem {
-            id: product.id,
+            id: product.id.into(),
             name: product.name.clone(),
             stock_level: inventory.stock_level,
             threshold: inventory.threshold,
@@ -178,8 +180,8 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         // Get all inventory items where stock_level <= threshold
         let low_stock_inventory = Inventory::find()
             .filter(
-                db_entity::inventory::Column::StockLevel
-                    .lte(db_entity::inventory::Column::Threshold),
+                Expr::col(db_entity::inventory::Column::StockLevel)
+                    .lte(Expr::col(db_entity::inventory::Column::Threshold)),
             )
             .all(&*self.db)
             .await?;
@@ -206,12 +208,12 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
     async fn update_stock_level(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         new_level: u32,
         record_history: bool,
     ) -> Result<InventoryItem, ServiceError> {
         // Find the product
-        let product = Product::find_by_id(product_id)
+        let product = Product::find_by_id(product_id.clone())
             .one(&*self.db)
             .await?
             .ok_or_else(|| {
@@ -219,21 +221,13 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
 
         let mut inventory_model = match inventory {
             Some(model) => model.into_active_model(),
             None => {
                 // Create new inventory record if it doesn't exist
-                let mut new_model = db_entity::inventory::ActiveModel::default();
-                new_model.product_id = Set(product_id);
-                new_model.stock_level = Set(0); // Will be updated below
-                new_model.threshold = Set(10); // Default threshold
-                new_model.created_at = Set(Utc::now());
-                new_model.updated_at = Set(Utc::now());
-                new_model.price_updated_at = Set(Utc::now());
-                new_model.purchase_price = Set(0.0.into());
-                new_model.selling_price = Set(0.0.into());
+                let new_model = create_new_inventory_model(product_id);
                 new_model.insert(&*self.db).await?.into_active_model()
             }
         };
@@ -245,9 +239,9 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         // Update stock history if requested
         if record_history {
             let current_model = inventory_model.clone().try_into_model()?;
-            let mut history = match current_model.stock_history {
+            let history = match current_model.stock_history {
                 Some(json) => {
-                    let mut history = json.as_array().map(|arr| arr.clone()).unwrap_or_default();
+                    let mut history = json.as_array().cloned().unwrap_or_default();
                     history.push(new_level.into());
                     json!(history)
                 }
@@ -267,7 +261,7 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             .await
     }
 
-    async fn get_stock_level(&self, product_id: Uuid) -> Result<u32, ServiceError> {
+    async fn get_stock_level(&self, product_id: DbId) -> Result<u32, ServiceError> {
         // Find the inventory record
         let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
 
@@ -277,10 +271,10 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
     async fn get_inventory_item(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
     ) -> Result<Option<InventoryItem>, ServiceError> {
         // Find the product
-        let product = match Product::find_by_id(product_id).one(&*self.db).await? {
+        let product = match Product::find_by_id(product_id.clone()).one(&*self.db).await? {
             Some(p) => p,
             None => return Ok(None),
         };
@@ -305,15 +299,15 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         let inventory_records = Inventory::find().all(&*self.db).await?;
 
         // Create a map of product_id to inventory record for quick lookup
-        let inventory_map: std::collections::HashMap<Uuid, InventoryModel> = inventory_records
+        let inventory_map: std::collections::HashMap<DbId, InventoryModel> = inventory_records
             .into_iter()
-            .map(|inv| (inv.product_id, inv))
+            .map(|inv| (inv.product_id.into(), inv))
             .collect();
 
         // Convert to inventory items
         let mut items = Vec::new();
         for product in products {
-            let inventory = inventory_map.get(&product.id);
+            let inventory = inventory_map.get(&product.id.into());
             let item = self.to_inventory_item(&product, inventory).await?;
             items.push(item);
         }
@@ -323,13 +317,13 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
     async fn record_stock_transaction(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         quantity: i32,
         transaction_type: &str,
         notes: Option<String>,
     ) -> Result<(), ServiceError> {
         // Find the product
-        let product = Product::find_by_id(product_id)
+        let _product = Product::find_by_id(product_id.clone())
             .one(&*self.db)
             .await?
             .ok_or_else(|| {
@@ -337,19 +331,23 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
 
         let mut inventory_model = match inventory {
             Some(model) => model.into_active_model(),
             None => {
                 // Create new inventory record if it doesn't exist
-                let new_model = create_new_inventory_model(product_id).await;
+                let new_model = create_new_inventory_model(product_id);
                 new_model.insert(&*self.db).await?.into_active_model()
             }
         };
 
         // Get current stock level
-        let current_stock = inventory_model.stock_level.clone().unwrap_or(0);
+        let current_stock = match inventory_model.stock_level.clone() {
+            ActiveValue::Set(val) => val,
+            ActiveValue::Unchanged(val) => val,
+            _ => 0,
+        };
 
         // Update stock level based on transaction type
         let new_stock = match transaction_type {
@@ -392,9 +390,9 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
         // Update stock history
         let current_model = inventory_model.clone().try_into_model()?;
-        let mut history = match current_model.stock_history {
+        let history = match current_model.stock_history {
             Some(json) => {
-                let mut history = json.as_array().map(|arr| arr.clone()).unwrap_or_default();
+                let mut history = json.as_array().cloned().unwrap_or_default();
                 history.push(new_stock.into());
                 json!(history)
             }
@@ -414,12 +412,12 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
     async fn update_prices(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         purchase_price: Option<f64>,
         selling_price: Option<f64>,
     ) -> Result<InventoryItem, ServiceError> {
         // Find the product
-        let product = Product::find_by_id(product_id)
+        let product = Product::find_by_id(product_id.clone())
             .one(&*self.db)
             .await?
             .ok_or_else(|| {
@@ -427,24 +425,28 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
 
         let mut inventory_model = match inventory {
             Some(model) => model.into_active_model(),
             None => {
                 // Create new inventory record if it doesn't exist
-                let new_model = create_new_inventory_model(product_id).await;
+                let new_model = create_new_inventory_model(product_id);
                 new_model.insert(&*self.db).await?.into_active_model()
             }
         };
 
         // Update prices if provided
         if let Some(price) = purchase_price {
-            inventory_model.purchase_price = Set(price.into());
+            // Convert f64 to Decimal using string conversion
+            let decimal_price = Decimal::from_str(&price.to_string()).unwrap_or(Decimal::new(0, 0));
+            inventory_model.purchase_price = Set(decimal_price);
         }
 
         if let Some(price) = selling_price {
-            inventory_model.selling_price = Set(price.into());
+            // Convert f64 to Decimal using string conversion
+            let decimal_price = Decimal::from_str(&price.to_string()).unwrap_or(Decimal::new(0, 0));
+            inventory_model.selling_price = Set(decimal_price);
         }
 
         // Update price_updated_at and updated_at
@@ -463,7 +465,7 @@ impl InventoryRepository for SeaOrmInventoryRepository {
 
     async fn create_or_update_inventory_item(
         &self,
-        product_id: Uuid,
+        product_id: DbId,
         stock_level: u32,
         threshold: u32,
         supplier: Option<String>,
@@ -475,7 +477,7 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         selling_price: f64,
     ) -> Result<InventoryItem, ServiceError> {
         // Find the product
-        let product = Product::find_by_id(product_id)
+        let product = Product::find_by_id(product_id.clone())
             .one(&*self.db)
             .await?
             .ok_or_else(|| {
@@ -483,16 +485,15 @@ impl InventoryRepository for SeaOrmInventoryRepository {
             })?;
 
         // Find or create inventory record
-        let inventory = Inventory::find_by_id(product_id).one(&*self.db).await?;
+        let inventory = Inventory::find_by_id(product_id.clone()).one(&*self.db).await?;
 
         let mut inventory_model = match inventory {
-            Some(model) => model.into_active_model(),
+            Some(ref model) => {
+                <db_entity::InventoryModel as Clone>::clone(model).into_active_model()
+            }
             None => {
                 // Create new inventory record if it doesn't exist
-                let mut new_model = db_entity::inventory::ActiveModel::default();
-                new_model.product_id = Set(product_id);
-                new_model.created_at = Set(Utc::now());
-                new_model
+                create_new_inventory_model(product_id)
             }
         };
 
@@ -519,8 +520,13 @@ impl InventoryRepository for SeaOrmInventoryRepository {
         inventory_model.unit = Set(unit);
         inventory_model.notes = Set(notes);
         inventory_model.expiry_date = Set(expiry_date);
-        inventory_model.purchase_price = Set(purchase_price.into());
-        inventory_model.selling_price = Set(selling_price.into());
+        // Convert f64 to Decimal using string conversion
+        let purchase_decimal =
+            Decimal::from_str(&purchase_price.to_string()).unwrap_or(Decimal::new(0, 0));
+        let selling_decimal =
+            Decimal::from_str(&selling_price.to_string()).unwrap_or(Decimal::new(0, 0));
+        inventory_model.purchase_price = Set(purchase_decimal);
+        inventory_model.selling_price = Set(selling_decimal);
         inventory_model.price_updated_at = Set(Utc::now());
         inventory_model.updated_at = Set(Utc::now());
 
@@ -537,15 +543,376 @@ impl InventoryRepository for SeaOrmInventoryRepository {
     }
 }
 
-async fn create_new_inventory_model(product_id: Uuid) -> db_entity::inventory::ActiveModel {
-    let mut new_model = db_entity::inventory::ActiveModel::default();
-    new_model.product_id = Set(product_id);
-    new_model.stock_level = Set(0);
-    new_model.threshold = Set(10);
-    new_model.created_at = Set(Utc::now());
-    new_model.updated_at = Set(Utc::now());
-    new_model.price_updated_at = Set(Utc::now());
-    new_model.purchase_price = Set(0.0.into());
-    new_model.selling_price = Set(0.0.into());
-    new_model
+fn create_new_inventory_model(product_id: DbId) -> db_entity::inventory::ActiveModel {
+    db_entity::inventory::ActiveModel {
+        product_id: Set(product_id.into()),
+        stock_level: Set(0),
+        threshold: Set(10),
+        created_at: Set(Utc::now()),
+        updated_at: Set(Utc::now()),
+        price_updated_at: Set(Utc::now()),
+        purchase_price: Set(Decimal::new(0, 0)),
+        selling_price: Set(Decimal::new(0, 0)),
+        ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+    use db_entity::utils::db_id::DbId;
+    use pretty_assertions::assert_eq;
+    use sea_orm::{DatabaseBackend, MockDatabase};
+    use std::str::FromStr;
+
+    const TEST_PRODUCT_ID: &str = "01890289-8b6e-7cc3-98c4-dc0c0c07398f";
+
+    fn create_test_product() -> db_entity::ProductModel {
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let now = Utc::now();
+        db_entity::ProductModel {
+            id: product_id,
+            name: "Test Product".to_string(),
+            generic_name: Some("Generic Test".to_string()),
+            description: Some("Test description".to_string()),
+            category: db_entity::ProductCategory::OTC,
+            dosage_form: "Tablet".to_string(),
+            strength: "500mg".to_string(),
+            manufacturer: "Test Manufacturer".to_string(),
+            barcode: Some("1234567890".to_string()),
+            active_ingredients: json!(["ingredient1", "ingredient2"]),
+            created_at: now.into(),
+            updated_at: now.into(),
+        }
+    }
+
+    fn create_test_inventory() -> db_entity::InventoryModel {
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+        let now = Utc::now();
+        db_entity::InventoryModel {
+            product_id,
+            stock_level: 50,
+            threshold: 10,
+            supplier: Some("Test Supplier".to_string()),
+            last_ordered: Some(now),
+            stock_history: Some(json!([50])),
+            reorder_amount: Some(20),
+            unit: Some("Box".to_string()),
+            notes: Some("Test notes".to_string()),
+            expiry_date: Some(NaiveDate::from_ymd_opt(2025, 12, 31).unwrap()),
+            purchase_price: Decimal::from_str("10.50").unwrap(),
+            selling_price: Decimal::from_str("15.75").unwrap(),
+            price_updated_at: now,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_inventory_item() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = create_test_inventory();
+        let product_id: DbId = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results(vec![vec![inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test get_inventory_item
+        let result = repo.get_inventory_item(product_id.clone()).await;
+        assert!(result.is_ok());
+
+        let item = result.unwrap().unwrap();
+        assert_eq!(item.id, product_id);
+        assert_eq!(item.name, "Test Product");
+        assert_eq!(item.stock_level, 50);
+        assert_eq!(item.purchase_price, 10.50);
+        assert_eq!(item.selling_price, 15.75);
+    }
+
+    #[tokio::test]
+    async fn test_update_stock_level() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = create_test_inventory();
+        let updated_inventory = {
+            let mut inv = inventory.clone();
+            inv.stock_level = 75;
+            inv.stock_history = Some(json!([50, 75]));
+            inv
+        };
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results(vec![vec![inventory.clone()]])
+            .append_query_results(vec![vec![updated_inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test update_stock_level
+        let result = repo.update_stock_level(product_id, 75, true).await;
+        assert!(result.is_ok());
+
+        let item = result.unwrap();
+        assert_eq!(item.stock_level, 75);
+    }
+
+    #[tokio::test]
+    async fn test_update_prices() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = create_test_inventory();
+        let updated_inventory = {
+            let mut inv = inventory.clone();
+            inv.purchase_price = Decimal::from_str("12.50").unwrap();
+            inv.selling_price = Decimal::from_str("18.75").unwrap();
+            inv
+        };
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results(vec![vec![inventory.clone()]])
+            .append_query_results(vec![vec![updated_inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test update_prices
+        let result = repo
+            .update_prices(product_id, Some(12.50), Some(18.75))
+            .await;
+        assert!(result.is_ok());
+
+        let item = result.unwrap();
+        assert_eq!(item.purchase_price, 12.50);
+        assert_eq!(item.selling_price, 18.75);
+    }
+
+    #[tokio::test]
+    async fn test_record_stock_transaction() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = create_test_inventory();
+        let updated_inventory = {
+            let mut inv = inventory.clone();
+            inv.stock_level = 60;
+            inv.stock_history = Some(json!([50, 60]));
+            inv
+        };
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results(vec![vec![inventory.clone()]])
+            .append_query_results(vec![vec![updated_inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test record_stock_transaction for purchase
+        let result = repo
+            .record_stock_transaction(product_id, 10, "purchase", None)
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_record_stock_transaction_invalid_type() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = create_test_inventory();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results(vec![vec![inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test record_stock_transaction with invalid type
+        let result = repo
+            .record_stock_transaction(product_id, 10, "invalid_type", None)
+            .await;
+        assert!(result.is_err());
+        if let Err(err) = result {
+            match err {
+                ServiceError::InvalidValue(msg) => {
+                    assert!(msg.contains("Invalid transaction type"));
+                }
+                _ => panic!("Expected InvalidValue error"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_or_update_inventory_item() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = create_test_inventory();
+        let updated_inventory = {
+            let mut inv = inventory.clone();
+            inv.stock_level = 100;
+            inv.threshold = 20;
+            inv.supplier = Some("New Supplier".to_string());
+            inv.purchase_price = Decimal::from_str("20.00").unwrap();
+            inv.selling_price = Decimal::from_str("30.00").unwrap();
+            inv
+        };
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results(vec![vec![inventory.clone()]])
+            .append_query_results(vec![vec![updated_inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test create_or_update_inventory_item
+        let result = repo
+            .create_or_update_inventory_item(
+                product_id,
+                100,
+                20,
+                Some("New Supplier".to_string()),
+                Some(30),
+                Some("Box".to_string()),
+                Some("Updated notes".to_string()),
+                Some("2025-12-31".to_string()),
+                20.00,
+                30.00,
+            )
+            .await;
+        assert!(result.is_ok());
+
+        let item = result.unwrap();
+        assert_eq!(item.stock_level, 100);
+        assert_eq!(item.threshold, 20);
+        assert_eq!(item.supplier, Some("New Supplier".to_string()));
+        assert_eq!(item.purchase_price, 20.00);
+        assert_eq!(item.selling_price, 30.00);
+    }
+
+    #[tokio::test]
+    async fn test_create_new_inventory_item() {
+        // Create test data
+        let product = create_test_product();
+        let new_inventory = create_test_inventory();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![product.clone()]])
+            .append_query_results::<InventoryModel, _, _>(vec![vec![]]) // No existing inventory
+            .append_query_results::<InventoryModel, _, _>(vec![vec![new_inventory.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test create_or_update_inventory_item for new item
+        let result = repo
+            .create_or_update_inventory_item(
+                product_id,
+                50,
+                10,
+                Some("Test Supplier".to_string()),
+                Some(20),
+                Some("Box".to_string()),
+                Some("Test notes".to_string()),
+                Some("2025-12-31".to_string()),
+                10.50,
+                15.75,
+            )
+            .await;
+        assert!(result.is_ok());
+
+        let item = result.unwrap();
+        assert_eq!(item.stock_level, 50);
+        assert_eq!(item.purchase_price, 10.50);
+        assert_eq!(item.selling_price, 15.75);
+    }
+
+    #[tokio::test]
+    async fn test_get_low_stock_items() {
+        // Create test data
+        let product = create_test_product();
+        let inventory = {
+            let mut inv = create_test_inventory();
+            inv.stock_level = 5; // Below threshold of 10
+            inv
+        };
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results(vec![vec![inventory.clone()]])
+            .append_query_results(vec![vec![product.clone()]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test get_low_stock_items
+        let result = repo.get_low_stock_items().await;
+        assert!(result.is_ok());
+
+        let items = result.unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].stock_level, 5);
+        assert_eq!(items[0].threshold, 10);
+    }
+
+    #[tokio::test]
+    async fn test_invalid_expiry_date() {
+        // Create test data
+        let product = create_test_product();
+        let product_id = DbId::from_str(TEST_PRODUCT_ID).unwrap().into();
+
+        // Mock database
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results::<ProductModel, _, _>(vec![vec![product.clone()]])
+            .append_query_results::<InventoryModel, _, _>(vec![vec![]])
+            .into_connection();
+
+        let repo = SeaOrmInventoryRepository::new(Arc::new(db));
+
+        // Test with invalid expiry date format
+        let result = repo
+            .create_or_update_inventory_item(
+                product_id,
+                50,
+                10,
+                None,
+                None,
+                None,
+                None,
+                Some("invalid-date".to_string()),
+                10.0,
+                15.0,
+            )
+            .await;
+
+        assert!(result.is_err());
+        if let Err(err) = result {
+            match err {
+                ServiceError::InvalidValue(msg) => {
+                    assert!(msg.contains("Invalid expiry date format"));
+                }
+                _ => panic!("Expected InvalidValue error"),
+            }
+        }
+    }
 }

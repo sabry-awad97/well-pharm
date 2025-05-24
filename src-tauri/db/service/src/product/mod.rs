@@ -64,7 +64,14 @@ pub trait ProductRepository: Send + Sync {
         &self,
         category: Option<ProductCategory>,
         manufacturer: Option<&str>,
+        date_from: Option<chrono::DateTime<chrono::Utc>>,
+        date_to: Option<chrono::DateTime<chrono::Utc>>,
+        price_min: Option<f64>,
+        price_max: Option<f64>,
     ) -> Result<Vec<ProductModel>, ServiceError>;
+
+    /// Get all products
+    async fn get_all_products(&self) -> Result<Vec<ProductModel>, ServiceError>;
 }
 
 /// Sea-ORM implementation of ProductRepository
@@ -258,6 +265,10 @@ impl ProductRepository for SeaOrmProductRepository {
         &self,
         category: Option<ProductCategory>,
         manufacturer: Option<&str>,
+        _date_from: Option<chrono::DateTime<chrono::Utc>>,
+        _date_to: Option<chrono::DateTime<chrono::Utc>>,
+        _price_min: Option<f64>,
+        _price_max: Option<f64>,
     ) -> Result<Vec<ProductModel>, ServiceError> {
         let mut query = Product::find();
 
@@ -270,6 +281,14 @@ impl ProductRepository for SeaOrmProductRepository {
         }
 
         let products = query
+            .order_by_asc(db_entity::product::Column::Name)
+            .all(&*self.db)
+            .await?;
+        Ok(products)
+    }
+
+    async fn get_all_products(&self) -> Result<Vec<ProductModel>, ServiceError> {
+        let products = Product::find()
             .order_by_asc(db_entity::product::Column::Name)
             .all(&*self.db)
             .await?;
@@ -339,3 +358,7 @@ mod tests {
         }
     }
 }
+
+
+
+

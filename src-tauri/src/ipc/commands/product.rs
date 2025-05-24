@@ -47,8 +47,21 @@ pub struct ProductResponse {
     manufacturer: String,
     barcode: Option<String>,
     active_ingredients: serde_json::Value,
+    purchase_price: Option<f64>,
+    selling_price: Option<f64>,
     created_at: String,
     updated_at: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductFilterParams {
+    category: Option<String>,
+    manufacturer: Option<String>,
+    date_from: Option<String>,
+    date_to: Option<String>,
+    price_min: Option<f64>,
+    price_max: Option<f64>,
 }
 
 #[tauri::command]
@@ -76,7 +89,7 @@ pub async fn create_product(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(map_product_to_response(product))
+    Ok(map_product_to_response(&service_manager, product).await)
 }
 
 #[tauri::command]
@@ -111,7 +124,7 @@ pub async fn update_product(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(map_product_to_response(product))
+    Ok(map_product_to_response(&service_manager, product).await)
 }
 
 #[tauri::command]
@@ -147,7 +160,10 @@ pub async fn get_product_by_id(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(product.map(map_product_to_response))
+    Ok(match product {
+        Some(p) => Some(map_product_to_response(&service_manager, p).await),
+        None => None,
+    })
 }
 
 #[tauri::command]
@@ -162,32 +178,88 @@ pub async fn search_products(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(products.into_iter().map(map_product_to_response).collect())
+    let mut responses = Vec::with_capacity(products.len());
+    for product in products {
+        responses.push(map_product_to_response(&service_manager, product).await);
+    }
+
+    Ok(responses)
 }
 
 #[tauri::command]
 pub async fn filter_products(
     service_manager: State<'_, ServiceManager>,
-    category: Option<String>,
-    manufacturer: Option<String>,
+    params: ProductFilterParams,
 ) -> Result<Vec<ProductResponse>, String> {
     let product_repository = service_manager.product_repository();
 
     // Parse category if provided
-    let parsed_category = match category {
+    let parsed_category = match params.category {
         Some(ref cat_str) => Some(parse_product_category(cat_str)?),
         None => None,
     };
 
+    // Parse date strings to DateTime if provided
+    let date_from = if let Some(date_str) = params.date_from {
+        Some(
+            chrono::DateTime::parse_from_rfc3339(&date_str)
+                .map_err(|e| format!("Invalid date_from format: {}", e))?
+                .with_timezone(&chrono::Utc),
+        )
+    } else {
+        None
+    };
+
+    let date_to = if let Some(date_str) = params.date_to {
+        Some(
+            chrono::DateTime::parse_from_rfc3339(&date_str)
+                .map_err(|e| format!("Invalid date_to format: {}", e))?
+                .with_timezone(&chrono::Utc),
+        )
+    } else {
+        None
+    };
+
     // Convert Option<String> to Option<&str> for manufacturer
-    let manufacturer_ref = manufacturer.as_deref();
+    let manufacturer_ref = params.manufacturer.as_deref();
 
     let products = product_repository
-        .filter_products(parsed_category, manufacturer_ref)
+        .filter_products(
+            parsed_category,
+            manufacturer_ref,
+            date_from,
+            date_to,
+            params.price_min,
+            params.price_max,
+        )
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(products.into_iter().map(map_product_to_response).collect())
+    let mut responses = Vec::with_capacity(products.len());
+    for product in products {
+        responses.push(map_product_to_response(&service_manager, product).await);
+    }
+
+    Ok(responses)
+}
+
+#[tauri::command]
+pub async fn get_all_products(
+    service_manager: State<'_, ServiceManager>,
+) -> Result<Vec<ProductResponse>, String> {
+    let product_repository = service_manager.product_repository();
+
+    let products = product_repository
+        .get_all_products()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut responses = Vec::with_capacity(products.len());
+    for product in products {
+        responses.push(map_product_to_response(&service_manager, product).await);
+    }
+
+    Ok(responses)
 }
 
 // Helper function to parse product category string to enum
@@ -203,7 +275,24 @@ fn parse_product_category(category: &str) -> Result<db_entity::ProductCategory, 
 }
 
 // Helper function to map product model to response
-fn map_product_to_response(product: db_entity::ProductModel) -> ProductResponse {
+async fn map_product_to_response(
+    service_manager: &ServiceManager,
+    product: db_entity::ProductModel,
+) -> ProductResponse {
+    // Try to get inventory data for the product
+    let inventory_repository = service_manager.inventory_repository();
+    let inventory_item = inventory_repository
+        .get_inventory_item(product.id.into())
+        .await
+        .ok()
+        .flatten();
+
+    // Extract pricing information if available
+    let (purchase_price, selling_price) = match inventory_item {
+        Some(item) => (Some(item.purchase_price), Some(item.selling_price)),
+        None => (None, None),
+    };
+
     ProductResponse {
         id: product.id.to_string(),
         name: product.name,
@@ -215,6 +304,8 @@ fn map_product_to_response(product: db_entity::ProductModel) -> ProductResponse 
         manufacturer: product.manufacturer,
         barcode: product.barcode,
         active_ingredients: product.active_ingredients,
+        purchase_price,
+        selling_price,
         created_at: product.created_at.to_string(),
         updated_at: product.updated_at.to_string(),
     }

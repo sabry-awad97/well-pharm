@@ -1,4 +1,3 @@
-use chrono::NaiveDate;
 use db_entity::utils::db_id::DbId;
 use db_service::ServiceManager;
 use serde::{Deserialize, Serialize};
@@ -224,7 +223,7 @@ pub async fn update_inventory_item(
 
     // Get current inventory item to use existing values for fields not being updated
     let current_item = inventory_service
-        .get_inventory_item(product_id)
+        .get_inventory_item(product_id.clone())
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| {
