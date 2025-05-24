@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/popover';
 import Fuse from 'fuse.js';
 import { Search, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 
 interface EnhancedSearchProps {
   products: Product[];
@@ -36,15 +36,15 @@ export function EnhancedSearch({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize Fuse.js for fuzzy search
-  const fuse = new Fuse(products, {
+  const fuse = useMemo(() => new Fuse(products, {
     keys: ['name', 'genericName', 'manufacturer', 'category'],
     includeScore: true,
     threshold: 0.4,
-  });
+  }), [products]);
 
   // Update suggestions when input changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-    useEffect(() => {
+  useEffect(() => {
     if (inputValue.length >= 2) {
       const results = fuse
         .search(inputValue)
@@ -52,11 +52,14 @@ export function EnhancedSearch({
         .map(result => result.item);
       setSuggestions(results);
       setOpen(true);
+    } else if (inputValue.length === 0) {
+      setSuggestions(products.slice(0, 5));
+      setOpen(true);
     } else {
       setSuggestions([]);
       setOpen(false);
     }
-  }, [inputValue, products]);
+  }, [inputValue, fuse, products]); // fuse is now stable due to useMemo
 
   // Handle search submission
   const handleSearch = () => {
@@ -81,41 +84,42 @@ export function EnhancedSearch({
 
   return (
     <div className={`relative ${className}`}>
-      <div className="relative">
-        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-        <Input
-          ref={inputRef}
-          type="text"
-          placeholder={placeholder}
-          value={inputValue}
-          onChange={e => setInputValue(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              handleSearch();
-            }
-          }}
-          className="pr-10 pl-10"
-          aria-label="Search products"
-        />
-        {inputValue && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute top-0 right-0 h-full px-3"
-            onClick={handleClear}
-            aria-label="Clear search"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
       <Popover open={open && suggestions.length > 0} onOpenChange={setOpen}>
-        <PopoverTrigger className="hidden" />
+        <PopoverTrigger asChild>
+          <div className="relative">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              ref={inputRef}
+              type="text"
+              placeholder={placeholder}
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
+              className="pr-10 pl-10"
+              aria-label="Search products"
+            />
+            {inputValue && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-0 right-0 h-full px-3"
+                onClick={handleClear}
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </PopoverTrigger>
         <PopoverContent
           className="w-[var(--radix-popover-trigger-width)] p-0"
           align="start"
           side="bottom"
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Command>
             <CommandList>

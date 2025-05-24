@@ -124,7 +124,7 @@ export function ProductListingPage() {
 
   // Determine which data source to use
   const products = useMemo(() => {
-    if (debouncedQuery) return searchResults || [];
+    if (debouncedQuery && searchResults) return searchResults;
     return filteredProducts || [];
   }, [debouncedQuery, searchResults, filteredProducts]);
 
